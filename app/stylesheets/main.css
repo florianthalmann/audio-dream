@@ -1,0 +1,102 @@
+* {
+	margin: 0;
+	padding: 0;
+}
+
+html, body { height: 100%; width: 100%; }
+
+h1, h2, h3, body, button, input, select {
+	font-family: Avenir Next;
+	font-size: 25px;
+	text-align: center;
+	font-weight: 300;
+	background-color: #fdfdfd;
+	padding:5px 10px;
+}
+
+h1 { font-size: 200%; }
+
+h2 { font-size: 120%; font-weight: 400; }
+
+h3 { font-size: 120%; font-weight: 350; }
+
+button, input, select {
+	-moz-border-radius:12px;
+	-webkit-border-radius:12px;
+	border-radius:12px;
+	border:1px solid #eeeeee;
+	display:inline-block;
+	/*cursor:pointer;
+	padding:5px 5px;*/
+}
+
+a { text-decoration:none }
+
+#navlist li
+{
+  display: inline;
+  list-style-type: none;
+}
+
+select {
+	-webkit-appearance: none;
+}
+
+button:hover {
+	background-color:#eeeeee;
+}
+
+#map_canvas {
+    position: relative;
+}
+
+.angular-google-map,
+.angular-google-map-container {
+  height: 200px;
+}
+
+/**
+ * Checkbox Five
+ */
+.checkboxFive {
+	width: 25px;
+	margin: 20px 100px;
+	position: relative;
+}
+
+/**
+ * Create the box for the checkbox
+ */
+.checkboxFive label {
+	cursor: pointer;
+	position: absolute;
+	width: 25px;
+	height: 25px;
+	top: 0;
+  	left: 0;
+	background: #eee;
+	border:1px solid #ddd;
+}
+
+/**
+ * Display the tick inside the checkbox
+ */
+.checkboxFive label:after {
+	opacity: 0.2;
+	content: '';
+	position: absolute;
+	width: 9px;
+	height: 5px;
+	background: transparent;
+	top: 6px;
+	left: 7px;
+	border: 3px solid #333;
+	border-top: none;
+	border-right: none;
+
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);
+	-o-transform: rotate(-45deg);
+	-ms-transform: rotate(-45deg);
+	transform: rotate(-45deg);
+}

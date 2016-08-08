@@ -1,0 +1,19 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" type="text/css" href="stylesheets/main.css">
+	<script src="bower_components/angular/angular.min.js"></script>
+	<script src="lib/recorder.js"></script>
+	<script src="scripts/app.js"></script>
+	<script src="scripts/controllers/maincontroller.js"></script>
+	<script src="scripts/services/d3.js" charset="utf-8"></script>
+</head>
+<body ng-app="audioDream">
+	<div ng-controller="MainController">
+		<h1>Audio Dream</h1>
+		<select ng-init="selectedAudioInputDevice = audioDevices[0]" ng-model="selectedAudioInputDevice" ng-options="d.deviceId for d in audioInputDevices"></select>
+		<button ng-click="startRecording()">Start Recording</button>
+		<button ng-click="stopRecording()">Stop Recording</button>
+	</div>
+</body>
+</html>

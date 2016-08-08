@@ -1,0 +1,25 @@
+# Non-project-specific build files:
+build.xml
+local.properties
+/gradlew
+/gradlew.bat
+/gradle
+# Ant builds
+ant-build
+ant-gen
+# Eclipse builds
+gen
+out
+# Gradle builds
+/build
+
+**/.DS_Store
+
+**/bower_components
+**/node_modules
+
+**/*.m4a
+**/*.mp3
+**/*.wav
+
+recordings
