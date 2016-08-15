@@ -6,6 +6,8 @@
 	var wav = require('wav');
 	var exec = require('child_process').exec;
 	var math = require('mathjs');
+	var clusterfck = require('clusterfck');
+	var net = require('./net.js');
 	
 	var app = express();
 	
@@ -16,6 +18,7 @@
 	var audioFolder = 'recordings/';
 	var featureFolder = 'recordings/features/'
 	var currentFileCount = 0;
+	var fragmentLength = 0.05;
 	
 	app.post('/postAudioBlob', function (request, response) {
 		var currentPath = audioFolder+currentFileCount.toString()+'.wav';
@@ -36,14 +39,33 @@
 		});
 	}
 	
-	//extractFeatures(audioFolder+'0.wav', featureFolder);
-	getSegmentsAndSummarizedFeatures('0')
+	//extractFeatures(audioFolder+'fugue.wav', function() {
+		var segments = getFragmentsAndSummarizedFeatures('fugue');
+		var vectors = segments.map(function(s){return s["vector"];});
+		var clusters = clusterfck.kmeans(vectors).map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
+		console.log(vectors.length, clusters.length);
+		var clusterIndices = [];
+		for (var i = 0; i < clusters.length; i++) {
+			for (var j = 0; j < clusters[i].length; j++) {
+				clusterIndices[clusters[i][j]] = i;
+			}
+		}
+		var chars = clusterIndices.map(function(i){return String.fromCharCode(65+i);}).join('').match(/.{1,50}/g);
+		console.log(chars)
+		
+		var lstm = new net.Lstm(chars);
+		lstm.learn();
+		
+	//});
 	
-	function extractFeatures(path) {
+	
+	
+	function extractFeatures(path, callback) {
 		extractFeature(path, 'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', function() {
 			extractFeature(path, 'vamp:vamp-example-plugins:amplitudefollower:amplitude', function() {
 				extractFeature(path, 'vamp:vamp-example-plugins:spectralcentroid:logcentroid', function() {
 					//extractFeature(path, 'vamp:qm-vamp-plugins:qm-chromagram:chromagram');
+					if (callback) { callback(); }
 				});
 			});
 		});
@@ -60,64 +82,84 @@
 		});
 	}
 	
-	function getSegmentsAndSummarizedFeatures(path) {
-		var segments = {};
-		fs.readdir(featureFolder, function(err, files) {
-			var name = path.replace('.wav', '');
-			files = files.filter(function(f){return f.indexOf(name) == 0;});
-			files = files.map(function(f){return featureFolder+f;})
-			var onsetsFile = files.filter(function(f){return f.indexOf('onsets') > 0;})[0];
-			var otherFiles = files.filter(function(f){return f != onsetsFile;});
-			getEventsWithDuration(onsetsFile, function(segments) {
-				for (var i = 0; i < otherFiles.length; i++) {
-					addSummarizedFeature(otherFiles[i], segments, function(){
-						console.log(segments)
-					});
-				}
-			});
-		});
+	function getFragmentsAndSummarizedFeatures(path, callback) {
+		var files = fs.readdirSync(featureFolder);
+		var name = path.replace('.wav', '');
+		files = files.filter(function(f){return f.indexOf(name) == 0;});
+		files = files.map(function(f){return featureFolder+f;})
+		var featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0;});
+		var fragments = createFragments(featureFiles[0]);
+		for (var i = 0; i < featureFiles.length; i++) {
+			addSummarizedFeature(featureFiles[i], fragments);
+		}
+		return fragments;
 	}
 	
-	function getEventsWithDuration(path, callback) {
-		readJson(path, function(json) {
-			var events = [];
-			var fileName = json["file_metadata"]["identifiers"]["filename"];
-			var fileDuration = json["file_metadata"]["duration"];
-			var onsets = json["annotations"][0]["data"].map(function(o){return o["time"];});
-			if (onsets[0] > 0) {
-				events.push({"file":fileName, "time":0, "duration":onsets[0]});
-			}
-			for (var i = 0; i < onsets.length; i++) {
-				var duration = i<onsets.length-1 ? onsets[i+1]-onsets[i] : fileDuration-onsets[i];
-				events.push({"file":fileName, "time":onsets[i], "duration":duration});
-			}
-			callback(events);
-		});
+	function getSegmentsAndSummarizedFeatures(path, callback) {
+		var files = fs.readdirSync(featureFolder);
+		var name = path.replace('.wav', '');
+		files = files.filter(function(f){return f.indexOf(name) == 0;});
+		files = files.map(function(f){return featureFolder+f;})
+		var onsetsFile = files.filter(function(f){return f.indexOf('onsets') > 0;})[0];
+		var otherFiles = files.filter(function(f){return f != onsetsFile;});
+		var segments = getEventsWithDuration(onsetsFile);
+		for (var i = 0; i < otherFiles.length; i++) {
+			addSummarizedFeature(otherFiles[i], segments);
+		}
+		return segments;
 	}
 	
-	function addSummarizedFeature(path, segments, callback) {
-		readJson(path, function(json) {
-			var featureName = json["annotations"][0]["annotation_metadata"]["annotator"]["output_id"];
-			var data = json["annotations"][0]["data"];
-			for (var i = 0; i < segments.length; i++) {
-				var currentOnset = segments[i]["time"];
-				var currentOffset = currentOnset+segments[i]["duration"];
-				var currentData = data.filter(function(d){return currentOnset<=d["time"] && d["time"]<currentOffset;});
-				var currentValues = currentData.map(function(d){return d["value"]});
-				segments[i][featureName+"_mean"] = getMean(currentValues);
-				segments[i][featureName+"_var"] = getVariance(currentValues);
-			}
-			callback();
-		});
+	function createFragments(featurepath) {
+		var json = readJsonSync(featurepath);
+		var events = [];
+		var fileName = json["file_metadata"]["identifiers"]["filename"];
+		var fileDuration = json["file_metadata"]["duration"];
+		for (var i = 0; i < fileDuration; i+=fragmentLength) {
+			var duration = i+fragmentLength>fileDuration ? fileDuration-i : fragmentLength;
+			events.push(createEvent(fileName, i, duration));
+		}
+		return events;
+	}
+	
+	function getEventsWithDuration(path) {
+		var json = readJsonSync(path);
+		var events = [];
+		var fileName = json["file_metadata"]["identifiers"]["filename"];
+		var fileDuration = json["file_metadata"]["duration"];
+		var onsets = json["annotations"][0]["data"].map(function(o){return o["time"];});
+		if (onsets[0] > 0) {
+			events.push(createEvent(fileName, 0, onsets[0]));
+		}
+		for (var i = 0; i < onsets.length; i++) {
+			var duration = i<onsets.length-1 ? onsets[i+1]-onsets[i] : fileDuration-onsets[i];
+			events.push(createEvent(fileName, onsets[i], duration));
+		}
+		return events;
+	}
+	
+	function createEvent(file, time, duration) {
+		return {"file":file, "time":time, "duration":duration, "vector":[time, duration]};
+	}
+	
+	function addSummarizedFeature(path, segments) {
+		var json = readJsonSync(path);
+		var featureName = json["annotations"][0]["annotation_metadata"]["annotator"]["output_id"];
+		var data = json["annotations"][0]["data"];
+		for (var i = 0; i < segments.length; i++) {
+			var currentOnset = segments[i]["time"];
+			var currentOffset = currentOnset+segments[i]["duration"];
+			var currentData = data.filter(function(d){return currentOnset<=d["time"] && d["time"]<currentOffset;});
+			var currentValues = currentData.map(function(d){return d["value"]});
+			var means = getMean(currentValues);
+			var vars = getVariance(currentValues);
+			segments[i][featureName+"_mean"] = means;
+			segments[i][featureName+"_var"] = vars;
+			segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means.concat(vars) : [means, vars]);
+		}
 	}
 	
 	function getMean(values) {
 		return mapValueOrArray(math.mean, values);
-		/*if (Array.isArray(values[0])) {
-			average = values.reduce(function(p,c){ return p.map(function(v,i){ return v+c[i]; }); });
-			return average.map(function(a){return a/values.length;});
-		}
-		return values.reduce(function(p,c){ return p+c; }) / values.length;*/
 	}
 	
 	function getVariance(values) {
@@ -125,18 +167,17 @@
 	}
 	
 	function mapValueOrArray(func, values) {
-		if (Array.isArray(values[0])) {
-			return math.transpose(values).map(function(v){return func.apply(this, v);});
+		if (values.length > 0) {
+			if (Array.isArray(values[0])) {
+				return math.transpose(values).map(function(v){return func.apply(this, v);});
+			}
+			return func.apply(this, values);
 		}
-		return func.apply(this, values);
+		return 0;
 	}
 	
-	function readJson(path, callback) {
-		fs.readFile(path, 'utf8', function (err, data) {
-			console.log(path)
-			if (err) throw err;
-			callback(JSON.parse(data));
-		});
+	function readJsonSync(path) {
+		return JSON.parse(fs.readFileSync(path, 'utf8'));
 	}
 	
 	function execute(command, callback) {
