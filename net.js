@@ -8,6 +8,7 @@ module.exports = Net;
 	var Rvis = require('./lib/recurrentjs/vis.js');
 	
 	var Lstm = function (data_sents) {
+		
 		// model parameters
 		var generator = 'lstm'; // can be 'rnn' or 'lstm'
 		var hidden_sizes = [20,20]; // list of sizes of hidden layers
@@ -48,6 +49,10 @@ module.exports = Net;
 			if(iid === null) {
 				iid = setInterval(tick, 0); 
 			}
+		}
+		
+		this.sample = function() {
+			return predictSentence(model, true, sample_softmax_temperature);
 		}
 		
 		var initVocab = function(sents, count_threshold) {
@@ -196,7 +201,7 @@ module.exports = Net;
 			return out_struct;
 		}
 	
-		var predictSentence = function(model, samplei, temperature) {
+		function predictSentence(model, samplei, temperature) {
 			if (typeof samplei === 'undefined') {
 				samplei = false;
 			}
@@ -301,12 +306,12 @@ module.exports = Net;
 			ppl_list.push(cost_struct.ppl); // keep track of perplexity
 			// evaluate now and then
 			tick_iter += 1;
-			if (tick_iter % 50 === 0) {
+			/*if (tick_iter % 50 === 0) {
 				// draw samples
 				for (var q = 0; q < 5; q++) {
 					console.log(predictSentence(model, true, sample_softmax_temperature));
 				}
-			}
+			}*/
 			if (tick_iter % 10 === 0) {
 				// draw argmax prediction
 				var argmax_pred = predictSentence(model, false);
