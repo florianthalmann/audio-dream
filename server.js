@@ -48,6 +48,7 @@
 		});
 	}
 	
+	//extractFeature(audioFolder+'fugue.wav', 'vamp:qm-vamp-plugins:qm-chromagram:chromagram');
 	testClusters();
 	
 	function testClusters() {
@@ -216,6 +217,12 @@
 		for (var i = 0; i < featureFiles.length; i++) {
 			addSummarizedFeature(featureFiles[i], fragments);
 		}
+		//remove all fragments that contain undefined features
+		for (var i = fragments.length-1; i >= 0; i--) {
+			if (fragments[i]["vector"].filter(function(v) {return v === undefined;}).length > 0) {
+				fragments.splice(i, 1);
+			}
+		}
 		return fragments;
 	}
 	
@@ -262,7 +269,7 @@
 	}
 	
 	function createEvent(file, time, duration) {
-		return {"file":file, "time":time, "duration":duration, "vector":[time, duration]};
+		return {"file":file, "time":time, "duration":duration, "vector":[]};
 	}
 	
 	function addSummarizedFeature(path, segments) {
@@ -297,7 +304,6 @@
 			}
 			return func.apply(this, values);
 		}
-		return 0;
 	}
 	
 	function readJsonSync(path) {
