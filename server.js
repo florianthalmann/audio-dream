@@ -9,8 +9,8 @@
 	var Speaker = require('speaker');
 	var exec = require('child_process').exec;
 	var math = require('mathjs');
-	var clusterfck = require('clusterfck');
 	var net = require('./net.js');
+	var kmeans = require('./kmeans.js');
 	
 	var app = express();
 	
@@ -23,12 +23,9 @@
 	var currentFileCount = 0;
 	var fragmentLength = 0.05;
 	
-	const FIRST_CHAR = 65;
 	var wavMemory = {};
-	var speaker;
-	var fragments;
-	var clusters;
-	var lstm;
+	var speaker, speakerOut;
+	var fragments, clustering, lstm;
 	var isSampling = false;
 	
 	app.post('/postAudioBlob', function (request, response) {
@@ -51,40 +48,55 @@
 		});
 	}
 	
-	test();
+	testClusters();
 	
-	function test() {
-		//extractFeatures(audioFolder+'fugue.wav', function() {
-			fragments = getFragmentsAndSummarizedFeatures('fugue');
-			//list with a feature vector for each segment
-			var vectors = fragments.map(function(s){return s["vector"];});
-			//clusters with the indices of all feature vectors
-			clusters = clusterfck.kmeans(vectors).map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
-			console.log(vectors.length, clusters.length);
-			//cluster indices for each segment
-			var clusterIndices = [];
-			for (var i = 0; i < clusters.length; i++) {
-				for (var j = 0; j < clusters[i].length; j++) {
-					clusterIndices[clusters[i][j]] = i;
-				}
-			}
-			var chars = clusterIndices.map(function(i){return String.fromCharCode(FIRST_CHAR+i);}).join('').match(/.{1,50}/g);
-			console.log(chars)
-		
-			lstm = new net.Lstm(chars);
-			lstm.learn();
-			
+	function testClusters() {
+		setupTest();
+		var elements = clustering.getClusterElements(0);
+		indicesToWav(elements, function(wav) {
+			speakerOut.push(wav);
+			speakerOut.push(null);
+			resetSpeakerOut();
+			speakerOut.push(wav);
+			speakerOut.push(null);
+		});
+	}
+	
+	function testOriginalSequence() {
+		setupTest();
+		var chars = clustering.getCharSequence();
+		charsToWav(chars, function(wav) {
+			speakerOut.push(wav);
+			speakerOut.push(null);
+		});
+	}
+	
+	function testSamplingTheNet() {
+		setupTest();
+		//create list of sentences of 50 chars
+		var charSentences = clustering.getCharSequence().match(/.{1,50}/g);
+		lstm = new net.Lstm(charSentences);
+		lstm.learn();
+		startSampling(speakerOut);
+	}
+	
+	function setupTest() {
+		fragments = getFragmentsAndSummarizedFeatures('fugue');
+		var vectors = fragments.map(function(s){return s["vector"];});
+		clustering = new kmeans.Clustering(vectors);
+		resetSpeakerOut();
+	}
+	
+	function resetSpeakerOut() {
+		if (!speaker) {
 			speaker = new Speaker({
 				channels: 2,          // 2 channels
 				bitDepth: 16,         // 16-bit samples
 				sampleRate: 44100     // 44,100 Hz sample rate
 			});
-			
-			var output = new stream.PassThrough();
-			output.pipe(speaker);
-			
-			startSampling(output);
-		//});
+		}
+		speakerOut = new stream.PassThrough();
+		speakerOut.pipe(speaker);
 	}
 	
 	function startSampling(output) {
@@ -111,6 +123,12 @@
 		isSampling = false;
 	}
 	
+	function indicesToWav(fragmentIndices, callback) {
+		async.mapSeries(fragmentIndices, getWavOfFragment, function(err, results) {
+			callback(Buffer.concat(results));
+		});
+	}
+	
 	function charsToWav(chars, callback) {
 		async.mapSeries(chars, charToWav, function(err, results) {
 			callback(Buffer.concat(results));
@@ -118,18 +136,8 @@
 	}
 	
 	function charToWav(char, callback) {
-		var randomElement = getRandomClusterElement(charToClusterIndex(char))
+		var randomElement = clustering.getRandomClusterElement(char);
 		getWavOfFragment(randomElement, callback);
-	}
-	
-	function charToClusterIndex(char) {
-		return char.charCodeAt(0)-FIRST_CHAR;
-	}
-	
-	//returns the fragment index of a random element of a cluster
-	function getRandomClusterElement(clusterIndex) {
-		var clusterElements = clusters[clusterIndex];
-		return clusterElements[Math.floor(Math.random()*clusterElements.length)];
 	}
 	
 	function getWavOfFragment(index, callback) {
