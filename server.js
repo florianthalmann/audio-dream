@@ -21,9 +21,9 @@
 	var audioFolder = 'recordings/';
 	var featureFolder = 'recordings/features/';
 	var currentFileCount = 0;
-	var fragmentLength = 1;
-	var fadeLength = 0.1;
-	var numClusters = 200;
+	var fragmentLength = 0.02;
+	var fadeLength = 0.01;
+	var numClusters;
 	
 	var wavMemory = {};
 	var speaker, speakerOut;
@@ -186,7 +186,7 @@
 		var factor = format.byteRate;
 		fromSample = Math.round(fromSecond*factor);
 		toSample = Math.round(toSecond*factor);
-		var segment = wavMemory[filename]['data'].slice(fromSample, toSample);
+		var segment = Buffer.from(wavMemory[filename]['data'].slice(fromSample, toSample));
 		//console.log(filename, fromSample, toSample, segment.length)
 		fadeSegment(segment, fadeLength*factor, format.bitDepth/8);
 		return segment;
