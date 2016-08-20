@@ -21,7 +21,7 @@
 	var audioFolder = 'recordings/';
 	var featureFolder = 'recordings/features/';
 	var currentFileCount = 0;
-	var fragmentLength = 0.02;
+	var fragmentLength = 0.05;
 	var fadeLength = 0.01;
 	var numClusters;
 	
@@ -140,7 +140,8 @@
 	function charsToWav(chars) {
 		var wavs = Array.prototype.map.call(chars, function(c){return charToWav(c);});
 		var parts = [];
-		var bitFade = 176400*fadeLength; //TODO GET THIS FROM FORMAT!!!
+		//even number fade length for 16bit
+		var bitFade = Math.round(176400*fadeLength/2)*2; //TODO GET THIS FROM FORMAT!!!
 		//push the initial segment before the first crossfade
 		parts.push(wavs[0].slice(0, wavs[0].length-bitFade));
 		for (var i = 0; i < wavs.length-1; i++) {
@@ -158,7 +159,7 @@
 	function getBufferSum(b1, b2) {
 		var sum = Buffer.from(b1);
 		for (var s = 0; s < b1.length; s+=2) {
-			sum.writeInt16LE(b1.readInt16LE(s)+b2.readInt16LE(s), s);
+			sum.writeInt16LE(b1.readInt16LE(s)+b2.readInt16LE(s), s, false);
 		}
 		return sum;
 	}
@@ -182,30 +183,20 @@
 		}
 		toSecond += fadeLength/2;
 		var format = wavMemory[filename]['format'];
-		//console.log(format)
 		var factor = format.byteRate;
 		fromSample = Math.round(fromSecond*factor);
 		toSample = Math.round(toSecond*factor);
 		var segment = Buffer.from(wavMemory[filename]['data'].slice(fromSample, toSample));
-		//console.log(filename, fromSample, toSample, segment.length)
 		fadeSegment(segment, fadeLength*factor, format.bitDepth/8);
 		return segment;
 	}
 	
 	function fadeSegment(segment, numSamples, byteDepth) {
-		//console.log(segment, segment.length)
 		for (var i = 0; i < numSamples; i+=byteDepth) {
 			var j = segment.length-byteDepth-i; //backwards from last sample
 			var factor = i/numSamples;
-			/*console.log(i, segment.readInt16LE(i), factor*segment.readInt16LE(i), factor);
-			console.log(j, segment.readInt16LE(j), factor*segment.readInt16LE(j), factor);*/
 			segment.writeInt16LE(factor*segment.readInt16LE(i), i);
 			segment.writeInt16LE(factor*segment.readInt16LE(j), j);
-			//segment[i] = Math.floor(factor*segment[i]);
-			//segment[j] = Math.floor(factor*segment[j]);
-			/*if (i == 1000) {
-				console.log(i, segment[i], segment[j], factor);
-			}*/
 		}
 	}
 	
