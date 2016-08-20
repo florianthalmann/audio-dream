@@ -17,11 +17,13 @@
 	app.use(express["static"](__dirname + '/app'));
 	app.use(bodyParser.raw({ type: 'audio/wav', limit: '50mb' }));
 	
-	var features = ['vamp:qm-vamp-plugins:qm-onsetdetector:onsets', 'vamp:vamp-example-plugins:amplitudefollower:amplitude', 'vamp:qm-vamp-plugins:qm-chromagram:chromagram', 'vamp:vamp-example-plugins:spectralcentroid:logcentroid'];
+	var features = ['vamp:qm-vamp-plugins:qm-onsetdetector:onsets', 'vamp:vamp-example-plugins:amplitudefollower:amplitude', 'vamp:qm-vamp-plugins:qm-chromagram:chromagram', 'vamp:vamp-example-plugins:spectralcentroid:logcentroid', 'vamp:qm-vamp-plugins:qm-mfcc:coefficients'];
 	var audioFolder = 'recordings/';
 	var featureFolder = 'recordings/features/';
 	var currentFileCount = 0;
-	var fragmentLength = 0.05;
+	var fragmentLength = 1;
+	var fadeLength = 0.1;
+	var numClusters = 200;
 	
 	var wavMemory = {};
 	var speaker, speakerOut;
@@ -48,32 +50,35 @@
 		});
 	}
 	
-	//extractFeature(audioFolder+'fugue.wav', 'vamp:qm-vamp-plugins:qm-chromagram:chromagram');
-	testClusters();
+	//extractFeature(audioFolder+'fugue.wav', 'vamp:qm-vamp-plugins:qm-barbeattracker:beats');
+	setupTest('boner.wav', function() {
+		testOriginalSequence();
+	});
 	
 	function testClusters() {
-		setupTest();
-		var elements = clustering.getClusterElements(0);
-		indicesToWav(elements, function(wav) {
+		var clusters = clustering.getClusters();
+		var i = 0;
+		async.eachSeries(clusters, function(cluster, callback) {
+			var wav = indicesToWav(cluster);
+			var duration = wav.length/44100/2/2;
+			console.log("playing cluster " + i + " with size " + cluster.length + " and duration " + duration);
 			speakerOut.push(wav);
+			i++;
+			setTimeout(callback, (1000*duration)-50);
+		}, function(err) {
 			speakerOut.push(null);
-			resetSpeakerOut();
-			speakerOut.push(wav);
-			speakerOut.push(null);
+			console.log(err);
 		});
 	}
 	
 	function testOriginalSequence() {
-		setupTest();
 		var chars = clustering.getCharSequence();
-		charsToWav(chars, function(wav) {
-			speakerOut.push(wav);
-			speakerOut.push(null);
-		});
+		//console.log(chars)
+		speakerOut.push(charsToWav(chars));
+		speakerOut.push(null);
 	}
 	
 	function testSamplingTheNet() {
-		setupTest();
 		//create list of sentences of 50 chars
 		var charSentences = clustering.getCharSequence().match(/.{1,50}/g);
 		lstm = new net.Lstm(charSentences);
@@ -81,11 +86,14 @@
 		startSampling(speakerOut);
 	}
 	
-	function setupTest() {
-		fragments = getFragmentsAndSummarizedFeatures('fugue');
-		var vectors = fragments.map(function(s){return s["vector"];});
-		clustering = new kmeans.Clustering(vectors);
-		resetSpeakerOut();
+	function setupTest(filename, callback) {
+		getWavIntoMemory(filename, function(){
+			fragments = getFragmentsAndSummarizedFeatures(filename);
+			var vectors = fragments.map(function(s){return s["vector"];});
+			clustering = new kmeans.Clustering(vectors, numClusters);
+			resetSpeakerOut();
+			callback();
+		});
 	}
 	
 	function resetSpeakerOut() {
@@ -124,44 +132,81 @@
 		isSampling = false;
 	}
 	
-	function indicesToWav(fragmentIndices, callback) {
-		async.mapSeries(fragmentIndices, getWavOfFragment, function(err, results) {
-			callback(Buffer.concat(results));
-		});
+	function indicesToWav(fragmentIndices) {
+		var wavs = Array.prototype.map.call(fragmentIndices, function(c){return getWavOfFragment(c);});
+		return Buffer.concat(wavs);
 	}
 	
-	function charsToWav(chars, callback) {
-		async.mapSeries(chars, charToWav, function(err, results) {
-			callback(Buffer.concat(results));
-		});
+	function charsToWav(chars) {
+		var wavs = Array.prototype.map.call(chars, function(c){return charToWav(c);});
+		var parts = [];
+		var bitFade = 176400*fadeLength; //TODO GET THIS FROM FORMAT!!!
+		//push the initial segment before the first crossfade
+		parts.push(wavs[0].slice(0, wavs[0].length-bitFade));
+		for (var i = 0; i < wavs.length-1; i++) {
+			//push the crossfade part
+			parts.push(getBufferSum(wavs[i].slice(wavs[i].length-bitFade), wavs[i+1].slice(0, bitFade)));
+			//push the part where i+1 plays alone
+			parts.push(wavs[i+1].slice(bitFade, wavs[i+1].length-bitFade));
+		}
+		//push the last segment after the last crossfade
+		parts.push(wavs[wavs.length-1].slice(wavs[wavs.length-1].length-bitFade));
+		//concat everything and return
+		return Buffer.concat(parts);
 	}
 	
-	function charToWav(char, callback) {
+	function getBufferSum(b1, b2) {
+		var sum = Buffer.from(b1);
+		for (var s = 0; s < b1.length; s+=2) {
+			sum.writeInt16LE(b1.readInt16LE(s)+b2.readInt16LE(s), s);
+		}
+		return sum;
+	}
+	
+	function charToWav(char) {
 		var randomElement = clustering.getRandomClusterElement(char);
-		getWavOfFragment(randomElement, callback);
+		return getWavOfFragment(randomElement);
 	}
 	
-	function getWavOfFragment(index, callback) {
+	function getWavOfFragment(index) {
 		var filename = fragments[index]["file"];
-		if (!wavMemory[filename]) {
-			getWavIntoMemory(filename, function(){
-				respond();
-			});
-		} else {
-			respond();
-		}
-		function respond() {
-			var fromSecond = fragments[index]["time"];
-			callback(null, getSampleFragment(filename, fromSecond, fromSecond+fragments[index]["duration"]));
-		}
+		var fromSecond = fragments[index]["time"];
+		var toSecond = fromSecond+fragments[index]["duration"];
+		return getSampleFragment(filename, fromSecond, toSecond);
 	}
 	
 	function getSampleFragment(filename, fromSecond, toSecond) {
+		fromSecond -= fadeLength/2;
+		if (fromSecond < 0) {
+			fromSecond = 0;
+		}
+		toSecond += fadeLength/2;
 		var format = wavMemory[filename]['format'];
-		var factor = format.sampleRate*format.channels*(format.bitDepth/8);
+		//console.log(format)
+		var factor = format.byteRate;
 		fromSample = Math.round(fromSecond*factor);
 		toSample = Math.round(toSecond*factor);
-		return wavMemory[filename]['data'].slice(fromSample, toSample);
+		var segment = wavMemory[filename]['data'].slice(fromSample, toSample);
+		//console.log(filename, fromSample, toSample, segment.length)
+		fadeSegment(segment, fadeLength*factor, format.bitDepth/8);
+		return segment;
+	}
+	
+	function fadeSegment(segment, numSamples, byteDepth) {
+		//console.log(segment, segment.length)
+		for (var i = 0; i < numSamples; i+=byteDepth) {
+			var j = segment.length-byteDepth-i; //backwards from last sample
+			var factor = i/numSamples;
+			/*console.log(i, segment.readInt16LE(i), factor*segment.readInt16LE(i), factor);
+			console.log(j, segment.readInt16LE(j), factor*segment.readInt16LE(j), factor);*/
+			segment.writeInt16LE(factor*segment.readInt16LE(i), i);
+			segment.writeInt16LE(factor*segment.readInt16LE(j), j);
+			//segment[i] = Math.floor(factor*segment[i]);
+			//segment[j] = Math.floor(factor*segment[j]);
+			/*if (i == 1000) {
+				console.log(i, segment[i], segment[j], factor);
+			}*/
+		}
 	}
 	
 	function getWavIntoMemory(filename, callback) {
@@ -212,7 +257,7 @@
 		var name = path.replace('.wav', '');
 		files = files.filter(function(f){return f.indexOf(name) == 0;});
 		files = files.map(function(f){return featureFolder+f;})
-		var featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0;});
+		var featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0 && f.indexOf('beats') < 0;});
 		var fragments = createFragments(featureFiles[0]);
 		for (var i = 0; i < featureFiles.length; i++) {
 			addSummarizedFeature(featureFiles[i], fragments);
@@ -231,9 +276,9 @@
 		var name = path.replace('.wav', '');
 		files = files.filter(function(f){return f.indexOf(name) == 0;});
 		files = files.map(function(f){return featureFolder+f;})
-		var onsetsFile = files.filter(function(f){return f.indexOf('onsets') > 0;})[0];
-		var otherFiles = files.filter(function(f){return f != onsetsFile;});
-		var segments = getEventsWithDuration(onsetsFile);
+		var onsetFiles = files.filter(function(f){return f.indexOf('onsets') >= 0 || f.indexOf('beats') >= 0;});
+		var otherFiles = files.filter(function(f){return onsetFiles.indexOf(f) < 0;});
+		var segments = getEventsWithDuration(onsetFiles[0]);
 		for (var i = 0; i < otherFiles.length; i++) {
 			addSummarizedFeature(otherFiles[i], segments);
 		}
@@ -285,6 +330,7 @@
 			var vars = getVariance(currentValues);
 			segments[i][featureName+"_mean"] = means;
 			segments[i][featureName+"_var"] = vars;
+			//segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means : [means]); //see with just means
 			segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means.concat(vars) : [means, vars]);
 		}
 	}

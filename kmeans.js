@@ -8,11 +8,11 @@ module.exports = Kmeans;
 	
 	var FIRST_CHAR = 65;
 	
-	var Clustering = function(vectors) {
+	var Clustering = function(vectors, clusterCount) {
 		
 		//clusters with the indices of all feature vectors
 		console.log("Clustering...");
-		var clusters = clusterfck.kmeans(vectors).map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
+		var clusters = clusterfck.kmeans(vectors, clusterCount).map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
 		console.log("Clustered " + vectors.length + " vectors into " + clusters.length + " clusters");
 		
 		this.length = function() {
@@ -33,6 +33,10 @@ module.exports = Kmeans;
 				}
 			}
 			return clusterIndices;
+		}
+		
+		this.getClusters = function() {
+			return clusters;
 		}
 		
 		this.getClusterElements = function(index) {
