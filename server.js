@@ -19,8 +19,8 @@
 	var currentFileCount = 0;
 	var numClusters;
 	var fragmentLength = 2;
-	var fadeLength = 1;
-	var filename = 'fugue.wav';
+	var fadeLength = 3;
+	var filename = 'ligeti1.wav';
 	
 	var fragments, clustering, lstm;
 	var isSampling = false;

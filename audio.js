@@ -67,7 +67,9 @@ module.exports = Audio;
 	function getBufferSum(b1, b2) {
 		var sum = Buffer.from(b1);
 		for (var s = 0; s < b1.length; s+=2) {
-			sum.writeInt16LE(b1.readInt16LE(s)+b2.readInt16LE(s), s, false);
+			var v1 = b1.readInt16LE(s);
+			var v2 = b2.readInt16LE(s);
+			sum.writeInt16LE(v1+v2, s, false);
 		}
 		return sum;
 	}
@@ -80,11 +82,11 @@ module.exports = Audio;
 	}
 	
 	function getSampleFragment(filename, fromSecond, toSecond) {
-		fromSecond -= FADE_LENGTH/2;
+		fromSecond -= FADE_LENGTH;
 		if (fromSecond < 0) {
 			fromSecond = 0;
 		}
-		toSecond += FADE_LENGTH/2;
+		toSecond += FADE_LENGTH;
 		var format = wavMemory[filename]['format'];
 		var factor = format.byteRate;
 		var fromSample = Math.round(fromSecond*factor);
@@ -95,11 +97,14 @@ module.exports = Audio;
 	}
 	
 	function fadeSegment(segment, numSamples, byteDepth) {
-		for (var i = 0; i < numSamples; i+=byteDepth) {
+		var fadeLength = Math.min(numSamples, segment.length);
+		for (var i = 0; i < fadeLength; i+=byteDepth) {
 			var j = segment.length-byteDepth-i; //backwards from last sample
 			var factor = i/numSamples;
 			segment.writeInt16LE(factor*segment.readInt16LE(i), i);
-			segment.writeInt16LE(factor*segment.readInt16LE(j), j);
+			if (j >= 0) {
+				segment.writeInt16LE(factor*segment.readInt16LE(j), j);
+			}
 		}
 	}
 	
