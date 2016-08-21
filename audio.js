@@ -9,16 +9,14 @@ module.exports = Audio;
 	var wav = require('wav');
 	var Speaker = require('speaker');
 	
-	var audioFolder = 'recordings/';
 	var wavMemory = {};
 	var speaker, speakerOut;
 	
-	var fragmentLength = 0.05;
-	var fadeLength = 0.01;
+	var FADE_LENGTH = 0.01;
 	
-	var init = function(filename, callback) {
+	var init = function(filename, audioFolder, callback) {
 		resetSpeakerOut();
-		getWavIntoMemory(filename, callback);
+		getWavIntoMemory(filename, audioFolder, callback);
 	}
 	
 	var end = function() {
@@ -44,11 +42,14 @@ module.exports = Audio;
 		speakerOut.pipe(speaker);
 	}
 	
-	var fragmentsToWav = function(fragments) {
+	var fragmentsToWav = function(fragments, fadeLength) {
+		if (!isNaN(fadeLength)) {
+			FADE_LENGTH = fadeLength;
+		}
 		var wavs = fragments.map(function(f){return getWavOfFragment(f);});
 		var parts = [];
 		//even number fade length for 16bit
-		var bitFade = Math.round(176400*fadeLength/2)*2; //TODO GET THIS FROM FORMAT!!!
+		var bitFade = Math.round(176400*FADE_LENGTH/2)*2; //TODO GET THIS FROM FORMAT!!!
 		//push the initial segment before the first crossfade
 		parts.push(wavs[0].slice(0, wavs[0].length-bitFade));
 		for (var i = 0; i < wavs.length-1; i++) {
@@ -79,17 +80,17 @@ module.exports = Audio;
 	}
 	
 	function getSampleFragment(filename, fromSecond, toSecond) {
-		fromSecond -= fadeLength/2;
+		fromSecond -= FADE_LENGTH/2;
 		if (fromSecond < 0) {
 			fromSecond = 0;
 		}
-		toSecond += fadeLength/2;
+		toSecond += FADE_LENGTH/2;
 		var format = wavMemory[filename]['format'];
 		var factor = format.byteRate;
 		var fromSample = Math.round(fromSecond*factor);
 		var toSample = Math.round(toSecond*factor);
 		var segment = Buffer.from(wavMemory[filename]['data'].slice(fromSample, toSample));
-		fadeSegment(segment, fadeLength*factor, format.bitDepth/8);
+		fadeSegment(segment, FADE_LENGTH*factor, format.bitDepth/8);
 		return segment;
 	}
 	
@@ -102,7 +103,7 @@ module.exports = Audio;
 		}
 	}
 	
-	function getWavIntoMemory(filename, callback) {
+	function getWavIntoMemory(filename, audioFolder, callback) {
 		wavMemory[filename] = {};
 		var file = fs.createReadStream(audioFolder+filename);
 		var data = []; // array that collects all the chunks

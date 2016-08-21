@@ -32,19 +32,19 @@ module.exports = Analyzer;
 		});
 	}
 	
-	var getFragmentsAndSummarizedFeatures = function(path, useSegmentation) {
+	var getFragmentsAndSummarizedFeatures = function(path, fragmentLength) {
 		var files = fs.readdirSync(featureFolder);
 		var name = path.replace('.wav', '');
 		files = files.filter(function(f){return f.indexOf(name) == 0;});
 		files = files.map(function(f){return featureFolder+f;});
 		var fragments, featureFiles;
-		if (useSegmentation) {
+		if (isNaN(fragmentLength)) {
 			var segmentationFiles = files.filter(function(f){return f.indexOf('onsets') >= 0 || f.indexOf('beats') >= 0;});
 			featureFiles = files.filter(function(f){return segmentationFiles.indexOf(f) < 0;});
 			fragments = getEventsWithDuration(segmentationFiles[0]);
 		} else {
 			featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0 && f.indexOf('beats') < 0;});
-			fragments = createFragments(featureFiles[0]);
+			fragments = createFragments(featureFiles[0], fragmentLength);
 		}
 		for (var i = 0; i < featureFiles.length; i++) {
 			addSummarizedFeature(featureFiles[i], fragments);
@@ -67,7 +67,7 @@ module.exports = Analyzer;
 		return fragments;
 	}
 	
-	function createFragments(featurepath) {
+	function createFragments(featurepath, fragmentLength) {
 		var json = readJsonSync(featurepath);
 		var events = [];
 		var fileName = json["file_metadata"]["identifiers"]["filename"];

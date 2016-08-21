@@ -15,10 +15,12 @@
 	
 	var features = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody'};
 	
+	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
-	var numClusters = 50;
-	var useSegmentation = true;
-	var filename = 'ligeti1.wav';
+	var numClusters;
+	var fragmentLength = 2;
+	var fadeLength = 1;
+	var filename = 'fugue.wav';
 	
 	var fragments, clustering, lstm;
 	var isSampling = false;
@@ -70,7 +72,7 @@
 	
 	function testOriginalSequence() {
 		var chars = clustering.getCharSequence();
-		//console.log(chars)
+		console.log(chars)
 		audio.play(charsToWav(chars));
 	}
 	
@@ -83,8 +85,8 @@
 	}
 	
 	function setupTest(filename, callback) {
-		audio.init(filename, function(){
-			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, useSegmentation);
+		audio.init(filename, audioFolder, function(){
+			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength);
 			var vectors = fragments.map(function(f){return f["vector"];});
 			clustering = new kmeans.Clustering(vectors, numClusters);
 			callback();
@@ -122,7 +124,7 @@
 	}
 	
 	function indicesToWav(fragmentIndices) {
-		return audio.fragmentsToWav(fragmentIndices.map(function(i){return fragments[i];}));
+		return audio.fragmentsToWav(fragmentIndices.map(function(i){return fragments[i];}), fadeLength);
 	}
 	
 	app.listen("8088");
