@@ -17,13 +17,15 @@
 	app.use(express["static"](__dirname + '/app'));
 	app.use(bodyParser.raw({ type: 'audio/wav', limit: '50mb' }));
 	
-	var features = ['vamp:qm-vamp-plugins:qm-onsetdetector:onsets', 'vamp:vamp-example-plugins:amplitudefollower:amplitude', 'vamp:qm-vamp-plugins:qm-chromagram:chromagram', 'vamp:vamp-example-plugins:spectralcentroid:logcentroid', 'vamp:qm-vamp-plugins:qm-mfcc:coefficients'];
+	var features = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody'};
 	var audioFolder = 'recordings/';
 	var featureFolder = 'recordings/features/';
 	var currentFileCount = 0;
 	var fragmentLength = 0.05;
 	var fadeLength = 0.01;
-	var numClusters;
+	var numClusters = 50;
+	var useSegmentation = true;
+	var filename = 'boner.wav';
 	
 	var wavMemory = {};
 	var speaker, speakerOut;
@@ -50,10 +52,14 @@
 		});
 	}
 	
-	//extractFeature(audioFolder+'fugue.wav', 'vamp:qm-vamp-plugins:qm-barbeattracker:beats');
-	setupTest('boner.wav', function() {
-		testOriginalSequence();
-	});
+	//extractFeature(audioFolder+filename, features.melody);
+	test();
+	
+	function test() {
+		setupTest(filename, function() {
+			testOriginalSequence();
+		});
+	}
 	
 	function testClusters() {
 		var clusters = clustering.getClusters();
@@ -89,7 +95,14 @@
 	function setupTest(filename, callback) {
 		getWavIntoMemory(filename, function(){
 			fragments = getFragmentsAndSummarizedFeatures(filename);
-			var vectors = fragments.map(function(s){return s["vector"];});
+			var vectors = fragments.map(function(f){return f["vector"];});
+			//standardize the vectors
+			var transposed = math.transpose(vectors);
+			var means = transposed.map(function(v){return math.mean(v);});
+			var stds = transposed.map(function(v){return math.std(v);});
+			transposed = transposed.map(function(v,i){return v.map(function(e){return (e-means[i])/stds[i];})});
+			vectors = math.transpose(transposed);
+			//console.log(vectors.slice(0,1))
 			clustering = new kmeans.Clustering(vectors, numClusters);
 			resetSpeakerOut();
 			callback();
@@ -247,9 +260,16 @@
 		var files = fs.readdirSync(featureFolder);
 		var name = path.replace('.wav', '');
 		files = files.filter(function(f){return f.indexOf(name) == 0;});
-		files = files.map(function(f){return featureFolder+f;})
-		var featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0 && f.indexOf('beats') < 0;});
-		var fragments = createFragments(featureFiles[0]);
+		files = files.map(function(f){return featureFolder+f;});
+		var fragments, featureFiles;
+		if (useSegmentation) {
+			var segmentationFiles = files.filter(function(f){return f.indexOf('onsets') >= 0 || f.indexOf('beats') >= 0;});
+			featureFiles = files.filter(function(f){return segmentationFiles.indexOf(f) < 0;});
+			fragments = getEventsWithDuration(segmentationFiles[0]);
+		} else {
+			featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0 && f.indexOf('beats') < 0;});
+			fragments = createFragments(featureFiles[0]);
+		}
 		for (var i = 0; i < featureFiles.length; i++) {
 			addSummarizedFeature(featureFiles[i], fragments);
 		}
@@ -260,20 +280,6 @@
 			}
 		}
 		return fragments;
-	}
-	
-	function getSegmentsAndSummarizedFeatures(path, callback) {
-		var files = fs.readdirSync(featureFolder);
-		var name = path.replace('.wav', '');
-		files = files.filter(function(f){return f.indexOf(name) == 0;});
-		files = files.map(function(f){return featureFolder+f;})
-		var onsetFiles = files.filter(function(f){return f.indexOf('onsets') >= 0 || f.indexOf('beats') >= 0;});
-		var otherFiles = files.filter(function(f){return onsetFiles.indexOf(f) < 0;});
-		var segments = getEventsWithDuration(onsetFiles[0]);
-		for (var i = 0; i < otherFiles.length; i++) {
-			addSummarizedFeature(otherFiles[i], segments);
-		}
-		return segments;
 	}
 	
 	function createFragments(featurepath) {
@@ -305,7 +311,7 @@
 	}
 	
 	function createEvent(file, time, duration) {
-		return {"file":file, "time":time, "duration":duration, "vector":[]};
+		return {"file":file, "time":time, "duration":duration, "vector":[duration]};
 	}
 	
 	function addSummarizedFeature(path, segments) {
@@ -321,8 +327,8 @@
 			var vars = getVariance(currentValues);
 			segments[i][featureName+"_mean"] = means;
 			segments[i][featureName+"_var"] = vars;
-			//segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means : [means]); //see with just means
-			segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means.concat(vars) : [means, vars]);
+			segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means : [means]); //see with just means
+			//segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means.concat(vars) : [means, vars]);
 		}
 	}
 	
