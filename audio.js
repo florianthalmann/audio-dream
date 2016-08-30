@@ -42,6 +42,13 @@ module.exports = Audio;
 		speakerOut.pipe(speaker);
 	}
 	
+	var fragmentsToWavList = function(fragments, fadeLength) {
+		if (!isNaN(fadeLength)) {
+			FADE_LENGTH = fadeLength;
+		}
+		return fragments.map(function(f){return getWavOfFragment(f);});
+	}
+	
 	var fragmentsToWav = function(fragments, fadeLength) {
 		if (!isNaN(fadeLength)) {
 			FADE_LENGTH = fadeLength;
@@ -132,5 +139,6 @@ module.exports = Audio;
 	global.init = init;
 	global.play = play;
 	global.fragmentsToWav = fragmentsToWav;
+	global.fragmentsToWavList = fragmentsToWavList;
 	
 })(Audio);

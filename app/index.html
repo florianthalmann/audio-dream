@@ -5,6 +5,7 @@
 	<script src="bower_components/angular/angular.min.js"></script>
 	<script src="lib/recorder.js"></script>
 	<script src="scripts/app.js"></script>
+	<script src="scripts/player.js"></script>
 	<script src="scripts/controllers/maincontroller.js"></script>
 	<script src="scripts/services/d3.js" charset="utf-8"></script>
 </head>
@@ -14,6 +15,8 @@
 		<select ng-init="selectedAudioInputDevice = audioDevices[0]" ng-model="selectedAudioInputDevice" ng-options="d.deviceId for d in audioInputDevices"></select>
 		<button ng-click="startRecording()">Start Recording</button>
 		<button ng-click="stopRecording()">Stop Recording</button>
+		<button ng-click="startPlaying()">Start Playing</button>
+		<button ng-click="stopPlaying()">Stop Playing</button>
 	</div>
 </body>
 </html>

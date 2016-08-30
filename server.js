@@ -2,6 +2,7 @@
 	
 	var express = require('express');
 	var bodyParser = require('body-parser');
+	var wav = require('wav');
 	var util = require('./util.js');
 	var audio = require('./audio.js');
 	var analyzer = require('./analyzer.js');
@@ -18,12 +19,14 @@
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
 	var numClusters;
-	var fragmentLength = 2;
-	var fadeLength = 3;
+	var fragmentLength = 1;
+	var fadeLength = 0.5;
 	var filename = 'ligeti1.wav';
 	
 	var fragments, clustering, lstm;
 	var isSampling = false;
+	
+	var currentWavSequence;
 	
 	app.post('/postAudioBlob', function (request, response) {
 		var currentPath = audioFolder+currentFileCount.toString()+'.wav';
@@ -34,6 +37,33 @@
 		postProcess(currentPath);
 		response.send('wav saved at ' + currentPath);
 	});
+	
+	app.get('/getNextSegment', function(request, response, next) {
+		var newFadeLength = setFadeLength(parseFloat(request.query.fadelength));
+		//get new fragments if empty or new fade length
+		if (newFadeLength || !currentWavSequence || currentWavSequence.length == 0) {
+			setupTest(filename, function() {
+				currentWavSequence = charsToWavList(clustering.getCharSequence());
+				pushNextFragment(response);
+			});
+		} else {
+			pushNextFragment(response);
+		}
+	});
+	
+	function setFadeLength(newFadeLength) {
+		if (!isNaN(newFadeLength) && newFadeLength != fadeLength) {
+			fadeLength = newFadeLength;
+			return true;
+		}
+	}
+	
+	function pushNextFragment(sink) {
+		var writer = new wav.Writer();
+		writer.pipe(sink);
+		writer.push(currentWavSequence.shift());
+		writer.end();
+	}
 	
 	function postProcess(path) {
 		var tempPath = path.slice(0, path.indexOf('.wav'))+'_'+'.wav';
@@ -46,7 +76,7 @@
 	}
 	
 	//analyzer.extractFeatures(audioFolder+filename, [features.onset, features.amp, features.centroid, features.mfcc, features.chroma]);
-	test();
+	//test();
 	
 	function test() {
 		setupTest(filename, function() {
@@ -116,6 +146,11 @@
 	function stopSampling() {
 		isSampling = false;
 		audio.end();
+	}
+	
+	function charsToWavList(chars) {
+		var randomElementIndices = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		return audio.fragmentsToWavList(randomElementIndices.map(function(i){return fragments[i];}), fadeLength);
 	}
 	
 	function charsToWav(chars) {

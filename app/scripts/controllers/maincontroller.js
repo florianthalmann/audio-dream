@@ -8,6 +8,8 @@
 			var audioContext = new AudioContext();
 			
 			var currentInputDevice, recorder, recordingTimeout;
+			var player = new AudioPlayer(audioContext);
+			player.play();
 			
 			navigator.mediaDevices.enumerateDevices().then(function(devices) {
 				$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});
@@ -25,6 +27,14 @@
 				.catch(function(error) {
 					console.log(error);
 				});
+			}
+			
+			$scope.startPlaying = function() {
+				player.play();
+			}
+			
+			$scope.stopPlaying = function() {
+				player.stop();
 			}
 			
 			$scope.startRecording = function() {
