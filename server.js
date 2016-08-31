@@ -3,6 +3,7 @@
 	var express = require('express');
 	var bodyParser = require('body-parser');
 	var wav = require('wav');
+	var math = require('mathjs');
 	var util = require('./util.js');
 	var audio = require('./audio.js');
 	var analyzer = require('./analyzer.js');
@@ -19,8 +20,7 @@
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
 	var numClusters;
-	var fragmentLength = 1;
-	var fadeLength = 0.5;
+	var fragmentLength, fadeLength;
 	var filename = 'ligeti1.wav';
 	
 	var fragments, clustering, lstm;
@@ -38,10 +38,11 @@
 		response.send('wav saved at ' + currentPath);
 	});
 	
-	app.get('/getNextSegment', function(request, response, next) {
+	app.get('/getNextFragment', function(request, response, next) {
 		var newFadeLength = setFadeLength(parseFloat(request.query.fadelength));
-		//get new fragments if empty or new fade length
-		if (newFadeLength || !currentWavSequence || currentWavSequence.length == 0) {
+		var newFragmentLength = setFragmentLength(parseFloat(request.query.fragmentlength));
+		//make new fragments if list empty or parameters changed
+		if (newFadeLength || newFragmentLength || !currentWavSequence || currentWavSequence.length == 0) {
 			setupTest(filename, function() {
 				currentWavSequence = charsToWavList(clustering.getCharSequence());
 				pushNextFragment(response);
@@ -54,6 +55,13 @@
 	function setFadeLength(newFadeLength) {
 		if (!isNaN(newFadeLength) && newFadeLength != fadeLength) {
 			fadeLength = newFadeLength;
+			return true;
+		}
+	}
+	
+	function setFragmentLength(newFragmentLength) {
+		if (!isNaN(newFragmentLength) && newFragmentLength != fragmentLength) {
+			fragmentLength = newFragmentLength;
 			return true;
 		}
 	}
@@ -77,6 +85,99 @@
 	
 	//analyzer.extractFeatures(audioFolder+filename, [features.onset, features.amp, features.centroid, features.mfcc, features.chroma]);
 	//test();
+	testIterativeClustering();
+	
+	function testIterativeClustering() {
+		audio.init(filename, audioFolder, function(){
+			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength);
+			var vectors = fragments.map(function(f){return f["vector"];});
+			var groupSize = vectors.length / 10;
+			var clusterings = [];
+			for (var i = 0; i < 10; i++) {
+				var currentGroup = vectors.slice(0, (i+1)*groupSize);
+				clusterings.push(new kmeans.Clustering(currentGroup));
+				if (i > 0) {
+					var iM = getIntersectionMatrix(clusterings[i-1].getClusters(), clusterings[i].getClusters());
+					console.log(getClusterRelationships(iM, false));
+					
+					var dM = getDistanceMatrix(clusterings[i-1].getCentroids(), clusterings[i].getCentroids());
+					console.log(getClusterRelationships(dM, true));
+				}
+			}
+		});
+	}
+	
+	function getClusterRelationships(matrix, ascending) {
+		var elements = getOrderedElements(matrix, ascending);
+		var oldNew = [];
+		var i = 0;
+		while (Object.keys(oldNew).length < matrix.length) {
+			var currentPair = elements[i].coords;
+			var currentKeys = Object.keys(oldNew);
+			var currentValues = currentKeys.map(function(k){return oldNew[k];});
+			if (currentKeys.indexOf(currentPair[0].toString()) < 0 && currentValues.indexOf(currentPair[1]) < 0) {
+				oldNew[currentPair[0]] = currentPair[1];
+			}
+			i++;
+		}
+		return oldNew;
+	}
+	
+	function getOrderedElements(matrix, ascending) {
+		var orderedElements = [];
+		for (var i = 0; i < matrix.length; i++) {
+			for (var j = 0; j < matrix[i].length; j++) {
+				orderedElements.push({value:matrix[i][j], coords:[i,j]});
+			}
+		}
+		if (ascending) {
+			orderedElements.sort(function(a, b) {return a.value - b.value;});
+		} else {
+			orderedElements.sort(function(a, b) {return b.value - a.value;});
+		}
+		return orderedElements;
+	}
+	
+	function getIntersectionMatrix(a, b) {
+		var intersections = [];
+		for (var i = 0; i < a.length; i++) {
+			var currentCol = [];
+			for (var j = 0; j < b.length; j++) {
+				currentCol.push(getIntersection(a[i], b[j]).length);
+			}
+			intersections.push(currentCol);
+		}
+		return intersections;
+	}
+	
+	function getIntersection(a, b) {
+		var t;
+		if (b.length > a.length) t = b, b = a, a = t; // indexOf to loop over shorter
+		return a.filter(function (e) {
+			if (b.indexOf(e) !== -1) return true;
+		});
+	}
+	
+	function getDistanceMatrix(a, b) {
+		var distances = [];
+		for (var i = 0; i < a.length; i++) {
+			var currentCol = [];
+			for (var j = 0; j < b.length; j++) {
+				currentCol.push(getEuclideanDistance(a[i], b[j]));
+			}
+			distances.push(currentCol);
+		}
+		return distances;
+	}
+	
+	function getEuclideanDistance(a, b) {
+		var lim = Math.min(a.length, b.length);
+		var dist = 0;
+		for (var i = 0; i < lim; i++) {
+			dist += Math.pow(a[i]-b[i], 2);
+		}
+		return Math.sqrt(dist);
+	}
 	
 	function test() {
 		setupTest(filename, function() {
@@ -122,6 +223,8 @@
 			callback();
 		});
 	}
+	
+	
 	
 	function startSampling() {
 		isSampling = true;

@@ -4,7 +4,7 @@
 function AudioPlayer(audioContext) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
-	var SEGMENT_LENGTH = 1; //seconds
+	var FRAGMENT_LENGTH; //seconds
 	var FADE_LENGTH = 0.5; //seconds
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
@@ -41,6 +41,7 @@ function AudioPlayer(audioContext) {
 		var delay = getCurrentDelay();
 		var startTime = audioContext.currentTime+delay;
 		currentSource.start(startTime);
+		console.log(currentSource.buffer.duration)
 		//create next sources and wait or end and reset
 		createNextSource(function() {
 			nextSourceTime = startTime+currentSource.buffer.duration-(2*FADE_LENGTH);
@@ -55,7 +56,7 @@ function AudioPlayer(audioContext) {
 		if (!nextSourceTime) {
 			return SCHEDULE_AHEAD_TIME;
 		} else {
-			return nextSourceTime-audioContext.currentTime;
+			return Math.max(0, nextSourceTime-audioContext.currentTime);
 		}
 	}
 	
@@ -71,7 +72,7 @@ function AudioPlayer(audioContext) {
 	}
 	
 	function createNextSource(callback) {
-		var query = "http://localhost:8088/getNextSegment?fadelength="+FADE_LENGTH;
+		var query = "http://localhost:8088/getNextFragment?fadelength="+FADE_LENGTH+"&fragmentlength="+FRAGMENT_LENGTH;
 		var source = audioContext.createBufferSource();
 		source.connect(audioContext.destination);
 		loadAudio(query, function(loadedBuffer) {

@@ -7,13 +7,12 @@
 			window.AudioContext = window.AudioContext || window.webkitAudioContext;
 			var audioContext = new AudioContext();
 			
-			var currentInputDevice, recorder, recordingTimeout;
+			var currentInputDevice, currentOutputDevice, recorder, recordingTimeout;
 			var player = new AudioPlayer(audioContext);
-			player.play();
 			
 			navigator.mediaDevices.enumerateDevices().then(function(devices) {
 				$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});
-				$scope.selectedAudioInputDevice = $scope.audioInputDevices[0];
+				$scope.selectedAudioInputDevice = $scope.audioInputDevices[2];
 				$scope.audioInputDeviceSelected();
 				$scope.$apply();
 			});
@@ -22,7 +21,6 @@
 				navigator.mediaDevices.getUserMedia({audio: {deviceId: {exact: $scope.audioInputDevices.deviceID}}})
 				.then(function(audioStream) {
 					currentInputDevice = audioContext.createMediaStreamSource(audioStream);
-					console.log('input device selected');
 				})
 				.catch(function(error) {
 					console.log(error);
@@ -49,6 +47,7 @@
 				if (currentInputDevice && recorder) {
 					recordingTimeout = setTimeout(function() {
 						recorder.exportWAV(postBlob);
+						console.log("REC")
 						keepRecording();
 						recorder.clear();
 					}, 5000);
