@@ -12,15 +12,16 @@ module.exports = Analyzer;
 	var featureFolder = 'features/';
 	var currentPath;
 	
-	var extractFeatures = function(path, features) {
+	var extractFeatures = function(path, features, callback) {
 		currentPath = path;
 		async.mapSeries(features, extractFeature, function(){
-			console.log("DONE");
+			console.log("features extracted for "+path)
+			callback();
 		});
 	}
 	
 	function extractFeature(feature, callback) {
-		console.log("extracting "+feature)
+		//console.log("extracting "+feature)
 		var destination = featureFolder + currentPath.replace('.wav', '_').slice(currentPath.lastIndexOf('/')+1)
 			+ feature.replace(/:/g, '_') + '.json';
 		util.execute('sonic-annotator -d ' + feature + ' ' + currentPath + ' -w jams', function(success) {

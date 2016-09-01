@@ -99,7 +99,7 @@ module.exports = Audio;
 		var fromSample = Math.round(fromSecond*factor);
 		var toSample = Math.round(toSecond*factor);
 		var segment = Buffer.from(wavMemory[filename]['data'].slice(fromSample, toSample));
-		fadeSegment(segment, FADE_LENGTH*factor, format.bitDepth/8);
+		fadeSegment(segment, FADE_LENGTH*factor, format.bitDepth/8); //FADING NOW DONE IN FRONTEND
 		return segment;
 	}
 	
@@ -140,5 +140,6 @@ module.exports = Audio;
 	global.play = play;
 	global.fragmentsToWav = fragmentsToWav;
 	global.fragmentsToWavList = fragmentsToWavList;
+	global.getWavIntoMemory = getWavIntoMemory;
 	
 })(Audio);

@@ -5,7 +5,7 @@ function AudioPlayer(audioContext) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var FRAGMENT_LENGTH; //seconds
-	var FADE_LENGTH = 0.5; //seconds
+	var FADE_LENGTH = 0.2; //seconds
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
@@ -15,9 +15,9 @@ function AudioPlayer(audioContext) {
 	function init() {
 		reverbSend = audioContext.createConvolver();
 		reverbSend.connect(audioContext.destination);
-		/*loadAudio(reverbFile, function(buffer) {
+		loadAudio('impulse_rev.wav', function(buffer) {
 			reverbSend.buffer = buffer;
-		});*/
+		});
 	}
 	
 	this.play = function() {
@@ -74,7 +74,11 @@ function AudioPlayer(audioContext) {
 	function createNextSource(callback) {
 		var query = "http://localhost:8088/getNextFragment?fadelength="+FADE_LENGTH+"&fragmentlength="+FRAGMENT_LENGTH;
 		var source = audioContext.createBufferSource();
-		source.connect(audioContext.destination);
+		var panner = audioContext.createPanner();
+		panner.connect(audioContext.destination);
+		source.connect(panner);
+		panner.setPosition(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
+		source.connect(reverbSend);
 		loadAudio(query, function(loadedBuffer) {
 			source.buffer = loadedBuffer;
 			nextSource = source;

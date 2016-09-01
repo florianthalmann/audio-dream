@@ -12,7 +12,7 @@
 			
 			navigator.mediaDevices.enumerateDevices().then(function(devices) {
 				$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});
-				$scope.selectedAudioInputDevice = $scope.audioInputDevices[2];
+				$scope.selectedAudioInputDevice = $scope.audioInputDevices[1];
 				$scope.audioInputDeviceSelected();
 				$scope.$apply();
 			});
@@ -47,7 +47,6 @@
 				if (currentInputDevice && recorder) {
 					recordingTimeout = setTimeout(function() {
 						recorder.exportWAV(postBlob);
-						console.log("REC")
 						keepRecording();
 						recorder.clear();
 					}, 5000);

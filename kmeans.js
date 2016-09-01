@@ -13,7 +13,8 @@ module.exports = Kmeans;
 		//clusters with the indices of all feature vectors
 		console.log("Clustering...");
 		var kmeans = new clusterfck.Kmeans();
-		var clusters = kmeans.cluster(vectors, clusterCount).map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
+		var clusters = kmeans.cluster(vectors, clusterCount);
+		clusters = clusters.map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
 		var centroids = kmeans.centroids;
 		console.log("Clustered " + vectors.length + " vectors into " + clusters.length + " clusters");
 		
