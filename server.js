@@ -31,7 +31,7 @@
 	var clustering, lstm;
 	var isSampling = false;
 	
-	var currentWavSequence;
+	var randomElementIndices, currentWavSequence;
 	
 	init();
 	
@@ -96,13 +96,19 @@
 		clustering = new kmeans.Clustering(vectors, numClusters);
 	}
 	
+	app.get('/getCurrentStatus', function(request, response, next) {
+		response.write(JSON.stringify({fragments:fragments, numclusters:clustering.getClusters().length, currentFragmentIndex:randomElementIndices?randomElementIndices[0]:-1}));
+		response.end();
+	});
+	
 	app.get('/getNextFragment', function(request, response, next) {
 		var newFadeLength = setFadeLength(parseFloat(request.query.fadelength));
 		var newFragmentLength = setFragmentLength(parseFloat(request.query.fragmentlength));
 		//make new fragments if list empty or parameters changed
 		if (newFadeLength || newFragmentLength || !currentWavSequence || currentWavSequence.length == 0) {
 			//setupTest(filename, function() {
-				currentWavSequence = charsToWavList(clustering.getCharSequence());
+				currentCharSequence = clustering.getCharSequence();
+				currentWavSequence = charsToWavList(currentCharSequence);
 				pushNextFragment(response);
 			//});
 		} else {
@@ -128,6 +134,7 @@
 		var writer = new wav.Writer();
 		writer.pipe(sink);
 		writer.push(currentWavSequence.shift());
+		randomElementIndices.shift();
 		writer.end();
 	}
 	
@@ -300,7 +307,7 @@
 	}
 	
 	function charsToWavList(chars) {
-		var randomElementIndices = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		randomElementIndices = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
 		return audio.fragmentsToWavList(randomElementIndices.map(function(i){return fragments[i];}), fadeLength);
 	}
 	

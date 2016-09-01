@@ -8,7 +8,10 @@
 			var audioContext = new AudioContext();
 			
 			var currentInputDevice, currentOutputDevice, recorder, recordingTimeout;
-			var player = new AudioPlayer(audioContext);
+			var player = new AudioPlayer(audioContext, $scope);
+			
+			$scope.info = {"fragments":[]};
+			$scope.indicesOfPlaying = [];
 			
 			navigator.mediaDevices.enumerateDevices().then(function(devices) {
 				$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});

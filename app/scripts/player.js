@@ -1,7 +1,7 @@
 /**
  * @constructor
  */
-function AudioPlayer(audioContext) {
+function AudioPlayer(audioContext, $scope) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var FRAGMENT_LENGTH; //seconds
@@ -18,6 +18,7 @@ function AudioPlayer(audioContext) {
 		loadAudio('impulse_rev.wav', function(buffer) {
 			reverbSend.buffer = buffer;
 		});
+		updateInfo();
 	}
 	
 	this.play = function() {
@@ -41,6 +42,10 @@ function AudioPlayer(audioContext) {
 		var delay = getCurrentDelay();
 		var startTime = audioContext.currentTime+delay;
 		currentSource.start(startTime);
+		setTimeout(function(){
+			$scope.indicesOfPlaying = [$scope.info.fragments[$scope.info.currentFragmentIndex]];
+			$scope.$apply();
+		}, startTime);
 		console.log(currentSource.buffer.duration)
 		//create next sources and wait or end and reset
 		createNextSource(function() {
@@ -72,32 +77,53 @@ function AudioPlayer(audioContext) {
 	}
 	
 	function createNextSource(callback) {
-		var query = "http://localhost:8088/getNextFragment?fadelength="+FADE_LENGTH+"&fragmentlength="+FRAGMENT_LENGTH;
 		var source = audioContext.createBufferSource();
 		var panner = audioContext.createPanner();
 		panner.connect(audioContext.destination);
 		source.connect(panner);
 		panner.setPosition(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
 		source.connect(reverbSend);
-		loadAudio(query, function(loadedBuffer) {
+		requestAudio(function(loadedBuffer) {
 			source.buffer = loadedBuffer;
 			nextSource = source;
 			callback();
 		});
+		updateInfo();
+	}
+	
+	function requestAudio(callback) {
+		var query = "http://localhost:8088/getNextFragment?fadelength="+FADE_LENGTH+"&fragmentlength="+FRAGMENT_LENGTH;
+		loadAudio(query, callback);
 	}
 	
 	function loadAudio(path, callback) {
-		//console.log(path)
+		request(path, 'arraybuffer', function(err, response){
+			if (err) {
+				console.log('audio from server is faulty');
+				return;
+			}
+			audioContext.decodeAudioData(response, callback);
+		});
+	}
+	
+	function updateInfo() {
+		request("http://localhost:8088/getCurrentStatus", 'json', function(err, info){
+			if (err) {
+				console.log(err);
+				return;
+			}
+			//console.log(info);
+			$scope.info = info;
+			$scope.$apply();
+		});
+	}
+	
+	function request(path, responseType, callback) {
 		var request = new XMLHttpRequest();
 		request.open('GET', path, true);
-		request.responseType = 'arraybuffer';
-		request.onload = function() {
-			audioContext.decodeAudioData(request.response, function(buffer) {
-				callback(buffer);
-			}, function(err) {
-				console.log('audio from server is faulty');
-			});
-		}
+		request.responseType = responseType;
+		request.onload = function() { callback(null, request.response); }
+		request.error = function(err) { callback(err); }
 		request.send();
 	}
 	

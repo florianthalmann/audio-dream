@@ -6,6 +6,7 @@
 	<script src="lib/recorder.js"></script>
 	<script src="scripts/app.js"></script>
 	<script src="scripts/player.js"></script>
+	<script src="scripts/clusters.js"></script>
 	<script src="scripts/controllers/maincontroller.js"></script>
 	<script src="scripts/services/d3.js" charset="utf-8"></script>
 </head>
@@ -17,6 +18,9 @@
 		<button ng-click="stopRecording()">Stop Recording</button>
 		<button ng-click="startPlaying()">Start Playing</button>
 		<button ng-click="stopPlaying()">Stop Playing</button>
+		<div id="container" class="svg-container">
+			<cluster-bubbles data="info" playing="indicesOfPlaying"></cluster-bubbles>
+		</div>
 	</div>
 </body>
 </html>

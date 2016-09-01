@@ -10,6 +10,6 @@
 	// setup dependency injection
 	angular.module('d3', []);
 	angular.module('audioDream.controllers', []);
-	angular.module('audioDream.directives', []);
+	angular.module('audioDream.directives', ['d3']);
 
 }());
