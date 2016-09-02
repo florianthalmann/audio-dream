@@ -12,6 +12,9 @@ module.exports = Analyzer;
 	var featureFolder = 'features/';
 	var currentPath;
 	
+	var FEATURES = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody'};
+	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.amp, FEATURES.centroid, FEATURES.mfcc, FEATURES.chroma];
+	
 	var extractFeatures = function(path, features, callback) {
 		currentPath = path;
 		async.mapSeries(features, extractFeature, function(){
@@ -36,8 +39,12 @@ module.exports = Analyzer;
 	var getFragmentsAndSummarizedFeatures = function(path, fragmentLength) {
 		var files = fs.readdirSync(featureFolder);
 		var name = path.replace('.wav', '');
-		files = files.filter(function(f){return f.indexOf(name) == 0;});
+		files = files.filter(function(f){return f.indexOf(name+'_') == 0;});
 		files = files.map(function(f){return featureFolder+f;});
+		if (files.length < FEATURE_SELECTION.length) {
+			//incomplete feature files, return no fragments
+			return [];
+		}
 		var fragments, featureFiles;
 		if (isNaN(fragmentLength)) {
 			var segmentationFiles = files.filter(function(f){return f.indexOf('onsets') >= 0 || f.indexOf('beats') >= 0;});
@@ -52,6 +59,7 @@ module.exports = Analyzer;
 		}
 		//remove all fragments that contain undefined features
 		for (var i = fragments.length-1; i >= 0; i--) {
+			//console.log(fragments[i]["vector"].length);
 			if (fragments[i]["vector"].filter(function(v) {return v === undefined;}).length > 0) {
 				fragments.splice(i, 1);
 			}
@@ -110,10 +118,13 @@ module.exports = Analyzer;
 			var currentData = data.filter(function(d){return currentOnset<=d["time"] && d["time"]<currentOffset;});
 			var currentValues = currentData.map(function(d){return d["value"]});
 			var means = getMean(currentValues);
+			//console.log(currentValues.length)
 			var vars = getVariance(currentValues);
 			segments[i][featureName+"_mean"] = means;
 			segments[i][featureName+"_var"] = vars;
+			//console.log(Array.isArray(means) ? means.length : 1)
 			segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means : [means]); //see with just means
+			//console.log("v ", segments[i]["vector"].length)
 			//segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means.concat(vars) : [means, vars]);
 		}
 	}

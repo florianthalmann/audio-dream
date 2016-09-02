@@ -19,8 +19,6 @@
 	app.use(express["static"](__dirname + '/app'));
 	app.use(bodyParser.raw({ type: 'audio/wav', limit: '50mb' }));
 	
-	var features = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody'};
-	
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
 	var numClusters;
@@ -75,7 +73,7 @@
 	}
 	
 	function analyzeAndUpdateMemory(filename, callback) {
-		analyzer.extractFeatures(audioFolder+filename, [features.onset, features.amp, features.centroid, features.mfcc, features.chroma], function(){
+		analyzer.extractFeatures(audioFolder+filename, function(){
 			loadIntoMemory(filename, function() {
 				clusterCurrentMemory();
 				callback();

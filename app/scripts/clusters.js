@@ -100,11 +100,11 @@
 					}
 					
 					function getYValue(d, i) {
-						return yScale(d.vector[20]);
+						return yScale(d.vector[1]);
 					}
 					
 					function getR(d) {
-						return sizeScale(d.vector[6]);
+						return sizeScale(d.vector[2]);
 					}
 					
 					function getHsl(d) {
