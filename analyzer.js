@@ -12,12 +12,12 @@ module.exports = Analyzer;
 	var featureFolder = 'features/';
 	var currentPath;
 	
-	var FEATURES = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody'};
+	var FEATURES = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody', pitch:'vamp:cepstral-pitchtracker:cepstral-pitchtracker:notes'};
 	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.amp, FEATURES.centroid, FEATURES.mfcc, FEATURES.chroma];
 	
-	var extractFeatures = function(path, features, callback) {
+	var extractFeatures = function(path, callback) {
 		currentPath = path;
-		async.mapSeries(features, extractFeature, function(){
+		async.mapSeries(FEATURE_SELECTION, extractFeature, function(){
 			console.log("features extracted for "+path)
 			callback();
 		});

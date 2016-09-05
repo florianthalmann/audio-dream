@@ -5,10 +5,13 @@ function AudioPlayer(audioContext, $scope) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var FRAGMENT_LENGTH; //seconds
-	var FADE_LENGTH = 0.2; //seconds
+	var FADE_LENGTH = 0.3; //seconds
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
+	$scope.fragments = [];
+	$scope.currentFragments = [];
+	var nextFragmentIndex;
 	
 	init();
 	
@@ -18,8 +21,19 @@ function AudioPlayer(audioContext, $scope) {
 		loadAudio('impulse_rev.wav', function(buffer) {
 			reverbSend.buffer = buffer;
 		});
-		updateInfo();
 	}
+	
+	var socket = io();
+	
+	socket.on('fragments', function (data) {
+		$scope.fragments = data.fragments;
+		$scope.$apply();
+		//socket.emit('my other event', { my: 'data' });
+	});
+	
+	socket.on('nextFragmentIndex', function (data) {
+		nextFragmentIndex = data.nextFragmentIndex;
+	});
 	
 	this.play = function() {
 		if (!isPlaying) {
@@ -43,7 +57,7 @@ function AudioPlayer(audioContext, $scope) {
 		var startTime = audioContext.currentTime+delay;
 		currentSource.start(startTime);
 		setTimeout(function(){
-			$scope.indicesOfPlaying = [$scope.info.fragments[$scope.info.currentFragmentIndex]];
+			$scope.currentFragments = [$scope.fragments[nextFragmentIndex]];
 			$scope.$apply();
 		}, startTime);
 		console.log(currentSource.buffer.duration)
@@ -80,15 +94,27 @@ function AudioPlayer(audioContext, $scope) {
 		var source = audioContext.createBufferSource();
 		var panner = audioContext.createPanner();
 		panner.connect(audioContext.destination);
-		source.connect(panner);
+		var dryGain = audioContext.createGain();
+		dryGain.connect(panner);
+		dryGain.gain.value = 0.5;
+		source.connect(dryGain);
 		panner.setPosition(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
-		source.connect(reverbSend);
+		var reverbGain = audioContext.createGain();
+		reverbGain.connect(reverbSend);
+		reverbGain.gain.value = 0.2;
+		source.connect(reverbGain);
+		source.onended = function() {
+			//disconnect all nodes
+			source.disconnect();
+			panner.disconnect();
+			dryGain.disconnect();
+			reverbGain.disconnect();
+		};
 		requestAudio(function(loadedBuffer) {
 			source.buffer = loadedBuffer;
 			nextSource = source;
 			callback();
 		});
-		updateInfo();
 	}
 	
 	function requestAudio(callback) {
@@ -103,18 +129,6 @@ function AudioPlayer(audioContext, $scope) {
 				return;
 			}
 			audioContext.decodeAudioData(response, callback);
-		});
-	}
-	
-	function updateInfo() {
-		request("http://localhost:8088/getCurrentStatus", 'json', function(err, info){
-			if (err) {
-				console.log(err);
-				return;
-			}
-			//console.log(info);
-			$scope.info = info;
-			$scope.$apply();
 		});
 	}
 	

@@ -47,12 +47,17 @@
 						var toDeselect = oldVals.filter(function(i) {return newVals.indexOf(i) < 0;});
 						
 						var circles = svg.selectAll("circle");
-						circles.filter(function(d) { return toSelect.indexOf(d) >= 0 })
-							.style("fill", "white")
-							.style("opacity", 1);
-						circles.filter(function(d) { return toDeselect.indexOf(d) >= 0 })
+						circles//.filter(function(d) { return toDeselect.indexOf(d) >= 0 })
+						.transition()
+							.duration(100)
 							.style("fill", getHsl)
 							.style("opacity", 0.2);
+						
+						circles.filter(function(d) { return toSelect.indexOf(d) >= 0 })
+						.transition()
+							.duration(100) // time of duration
+							.style("fill", "white")
+							.style("opacity", 0.7);
 					}, true);
 					
 					// define render function
@@ -67,7 +72,7 @@
 						sizeScale = d3.scale.linear().domain([-3, 3]).range([5, 20]),
 						colorScale = d3.scale.linear().domain([-3, 3]).rangeRound([45, 360]);
 						
-						var circles = svg.selectAll("circle").data(data["fragments"]);
+						var circles = svg.selectAll("circle").data(data);
 						
 						circles.enter()
 							.append("circle")

@@ -9,17 +9,18 @@
 	<script src="scripts/clusters.js"></script>
 	<script src="scripts/controllers/maincontroller.js"></script>
 	<script src="scripts/services/d3.js" charset="utf-8"></script>
+	<script src="bower_components/socket.io-client/socket.io.js"></script>
 </head>
 <body ng-app="audioDream">
 	<div ng-controller="MainController">
 		<h1>Audio Dream</h1>
-		<select ng-init="selectedAudioInputDevice = audioDevices[0]" ng-model="selectedAudioInputDevice" ng-options="d.label for d in audioInputDevices"></select>
+		<select ng-init="selectedAudioInputDevice = audioDevices[0]" ng-model="selectedAudioInputDevice" ng-options="d.label for d in audioInputDevices" ng-change="audioInputDeviceSelected()"></select>
 		<button ng-click="startRecording()">Start Recording</button>
 		<button ng-click="stopRecording()">Stop Recording</button>
 		<button ng-click="startPlaying()">Start Playing</button>
 		<button ng-click="stopPlaying()">Stop Playing</button>
 		<div id="container" class="svg-container">
-			<cluster-bubbles data="info" playing="indicesOfPlaying"></cluster-bubbles>
+			<cluster-bubbles data="fragments" playing="currentFragments"></cluster-bubbles>
 		</div>
 	</div>
 </body>
