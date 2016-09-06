@@ -4,22 +4,19 @@
 	angular.module('audioDream.controllers', [])
 		.controller('MainController', ['$scope', '$http', function($scope, $http) {
 			
+			var socket = io();
+			
 			window.AudioContext = window.AudioContext || window.webkitAudioContext;
 			var audioContext = new AudioContext();
 			
 			var currentInputSource, currentOutputDevice, recorder, recordingTimeout;
-			var player = new AudioPlayer(audioContext, $scope);
-			
-			var midiAccess;
-			
-			if (navigator.requestMIDIAccess) {
-				navigator.requestMIDIAccess().then(function(access) {
-					midiAccess = access;
-					midiAccess.inputs.forEach(function(entry) {entry.onmidimessage = onMIDIMessage;});
-				});
-			} else {
-				console.log('No Web MIDI support');
-			}
+			var player = new AudioPlayer(audioContext, $scope, socket);
+			var pushMidi = new PushMidi(socket);
+			var analyser = audioContext.createAnalyser();
+			analyser.fftSize = 32;
+			var fftData = new Uint8Array(analyser.frequencyBinCount);
+			var isAnalyzing;
+			var previousAmps = [0,0,0];
 			
 			///////// AUDIO IO ////////
 			
@@ -44,54 +41,61 @@
 					}
 					currentInputSource = audioContext.createMediaStreamSource(audioStream);
 					currentInputSource.connect(audioContext.destination)
+					currentInputSource.connect(analyser);
 				})
 				.catch(function(error) {
 					console.log(error);
 				});
 			}
 			
-			///////// MIDI IO ////////
+			///////// ANALYZING AND TRIGGERING ////////
 			
-			function onMIDIMessage(event) {
-				var str = "MIDI message received at timestamp " + event.timestamp + "[" + event.data.length + " bytes]: ";
-				for (var i=0; i<event.data.length; i++) {
-					str += "0x" + event.data[i].toString(16) + " ";
+			function startAnalyzing() {
+				if (!isAnalyzing) {
+					isAnalyzing = true;
+					keepAnalyzing();
 				}
-				console.log(str, event.data);
-				
-				if (event.data[0] == 0x90) {
-					//note on
-				} else if (event.data[0] == 0x80) {
-					//note off
-				} else if (event.data[0] == 0xb0) {
-					//control change
-					if (event.data[1] == 1) {
-						changeParam(0, event.data[2]);
+			}
+			
+			function keepAnalyzing() {
+				if (isAnalyzing) {
+					analyser.getByteFrequencyData(fftData);
+					var currentAmp = fftData.reduce(function(a,b){return a+b;}, 0);
+					previousAmps.unshift(currentAmp);
+					previousAmps.pop();
+					var sortedAmps = previousAmps.slice().sort();
+					console.log(previousAmps, sortedAmps)
+					//amp going down
+					if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
+						console.log("play")
+						player.play();
+					//amp going up
+					} else {
+						sortedAmps.reverse();
+						if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
+							console.log("stop")
+							player.stop();
+						}
 					}
+					setTimeout(function() {
+						keepAnalyzing();
+					}, 1000);
 				}
 			}
 			
-			function changeParam(param, value) {
-				var request = new XMLHttpRequest();
-				request.open('GET', 'changeParam?param='+param+'&value='+value, true);
-				request.send();
-			}
-			
-			function sendMiddleC( midiAccess, portID ) {
-			  var noteOnMessage = [0x90, 60, 0x7f];    // note on, middle C, full velocity
-			  var output = midiAccess.outputs.get(portID);
-			  output.send( noteOnMessage );  //omitting the timestamp means send immediately.
-			  output.send( [0x80, 60, 0x40], window.performance.now() + 1000.0 ); // Inlined array creation- note off, middle C,  
-			                                                                      // release velocity = 64, timestamp = now + 1000ms.
+			function stopAnalyzing() {
+				isAnalyzing = false;
 			}
 			
 			///////// PLAYING AND RECORDING ////////
 			
 			$scope.startPlaying = function() {
 				player.play();
+				startAnalyzing();
 			}
 			
 			$scope.stopPlaying = function() {
+				stopAnalyzing();
 				player.stop();
 			}
 			
@@ -109,7 +113,7 @@
 						recorder.exportWAV(postBlob);
 						keepRecording();
 						recorder.clear();
-					}, 5000);
+					}, 10000);
 				}
 			}
 			

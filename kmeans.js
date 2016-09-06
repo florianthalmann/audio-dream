@@ -10,6 +10,7 @@ module.exports = Kmeans;
 	
 	var Clustering = function(vectors, clusterCount) {
 		
+		clusterCount = Math.round(vectors.length/10);
 		//clusters with the indices of all feature vectors
 		console.log("Clustering...");
 		var kmeans = new clusterfck.Kmeans();
@@ -22,20 +23,35 @@ module.exports = Kmeans;
 			return clusters.length;
 		}
 		
-		//returns a string with the cluster char for each vector in the original list
-		this.getCharSequence = function() {
-			return getIndexSequence().map(function(i){return indexToChar(i);}).join('');
+		//returns a list with the fragment index for each element of the clusters in order
+		this.getClusterSequence = function() {
+			var sequence = [];
+			for (var i = 0; i < clusters.length; i++) {
+				if (clusters[i]) {
+					for (var j = 0; j < clusters[i].length; j++) {
+						sequence.push(clusters[i][j]);
+					}
+				}
+			}
+			return sequence;
 		}
 		
 		//returns a list with the cluster index for each vector in the original list
-		function getIndexSequence() {
+		this.getIndexSequence = function() {
 			var clusterIndices = [];
 			for (var i = 0; i < clusters.length; i++) {
-				for (var j = 0; j < clusters[i].length; j++) {
-					clusterIndices[clusters[i][j]] = i;
+				if (clusters[i]) {
+					for (var j = 0; j < clusters[i].length; j++) {
+						clusterIndices[clusters[i][j]] = i;
+					}
 				}
 			}
 			return clusterIndices;
+		}
+		
+		//returns a string with the cluster char for each vector in the original list
+		this.getCharSequence = function() {
+			return this.getIndexSequence().map(function(i){return indexToChar(i);}).join('');
 		}
 		
 		this.getClusters = function() {

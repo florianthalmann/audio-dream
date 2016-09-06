@@ -1,11 +1,11 @@
 /**
  * @constructor
  */
-function AudioPlayer(audioContext, $scope) {
+function AudioPlayer(audioContext, $scope, socket) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var FRAGMENT_LENGTH; //seconds
-	var FADE_LENGTH = 0.3; //seconds
+	var FADE_LENGTH = 0.1; //seconds
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
@@ -22,8 +22,6 @@ function AudioPlayer(audioContext, $scope) {
 			reverbSend.buffer = buffer;
 		});
 	}
-	
-	var socket = io();
 	
 	socket.on('fragments', function (data) {
 		$scope.fragments = data.fragments;
@@ -59,7 +57,7 @@ function AudioPlayer(audioContext, $scope) {
 		setTimeout(function(){
 			$scope.currentFragments = [$scope.fragments[nextFragmentIndex]];
 			$scope.$apply();
-		}, startTime);
+		}, 1000*(delay+FADE_LENGTH));
 		console.log(currentSource.buffer.duration)
 		//create next sources and wait or end and reset
 		createNextSource(function() {
@@ -96,12 +94,12 @@ function AudioPlayer(audioContext, $scope) {
 		panner.connect(audioContext.destination);
 		var dryGain = audioContext.createGain();
 		dryGain.connect(panner);
-		dryGain.gain.value = 0.5;
+		dryGain.gain.value = 0.8;
 		source.connect(dryGain);
 		panner.setPosition(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
 		var reverbGain = audioContext.createGain();
 		reverbGain.connect(reverbSend);
-		reverbGain.gain.value = 0.2;
+		reverbGain.gain.value = 0.3;
 		source.connect(reverbGain);
 		source.onended = function() {
 			//disconnect all nodes

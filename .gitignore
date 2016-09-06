@@ -22,5 +22,6 @@ out
 **/*.mp3
 **/*.wav
 
+*saved
 recordings
 features

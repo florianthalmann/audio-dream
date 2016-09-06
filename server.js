@@ -33,7 +33,9 @@
 	var clustering, lstm;
 	var isSampling = false;
 	
-	var randomElementIndices, currentWavSequence;
+	var playClusters = true;
+	
+	var currentIndexSequence, currentWavSequence;
 	
 	init();
 	
@@ -43,8 +45,9 @@
 				.sort(function(f,g){return parseInt(f.slice(0,-4)) - parseInt(g.slice(0,-4));});
 			if (files.length > 0) {
 				currentFileCount = Math.max.apply(Math, files.map(function(f){return parseInt(f.slice(0,-4))}));
-				async.eachSeries(files, loadIntoMemory, function(){
+				async.eachSeries(files, loadIntoMemory, function(){ //loadIntoMemory analyzeAndLoad
 					clusterCurrentMemory();
+					emitFragments();
 					console.log("memory loaded and clustered");
 					//testSamplingTheNet();
 				});
@@ -55,28 +58,24 @@
 	io.on('connection', function (s) {
 		socket = s;
 		emitFragments();
-		
-		//socket.emit('news', { hello: 'world' });
-		/*socket.on('my other event', function (data) {
-			console.log(data);
-		});*/
+		socket.on('changeParam', function (data) {
+			console.log("param "+data.param+" changed to "+data.value);
+		});
 	});
 	
 	function emitFragments() {
-		var numClusters = clustering ? clustering.getClusters().length : 0;
-		socket.emit('fragments', { fragments:fragments, numClusters:numClusters });
+		if (socket) {
+			var numClusters = clustering ? clustering.getClusters().length : 0;
+			socket.emit('fragments', { fragments:fragments, numClusters:numClusters });
+		}
 	}
 	
 	function emitNextFragmentIndex() {
-		var nextFragmentIndex = randomElementIndices?randomElementIndices[0]:-1;
-		socket.emit('nextFragmentIndex', { nextFragmentIndex:nextFragmentIndex });
+		if (socket) {
+			var nextFragmentIndex = currentIndexSequence?currentIndexSequence[0]:-1;
+			socket.emit('nextFragmentIndex', { nextFragmentIndex:nextFragmentIndex });
+		}
 	}
-	
-	app.get('/changeParam', function (request, response) {
-		var param = parseInt(request.query.param);
-		var value = parseInt(request.query.value);
-		console.log("param "+param+" changed to "+value);
-	});
 	
 	app.post('/postAudioBlob', function (request, response) {
 		var filename = currentFileCount.toString()+'.wav';
@@ -87,7 +86,9 @@
 		setTimeout(function(){
 			postProcess(audioFolder+filename, function() {
 				response.send('wav saved at ' + filename);
-				analyzeAndUpdateMemory(filename, function() {
+				analyzeAndLoad(filename, function() {
+					clusterCurrentMemory();
+					emitFragments();
 				});
 			});
 		}, 50);
@@ -105,10 +106,9 @@
 		});
 	}
 	
-	function analyzeAndUpdateMemory(filename, callback) {
+	function analyzeAndLoad(filename, callback) {
 		analyzer.extractFeatures(audioFolder+filename, function(){
 			loadIntoMemory(filename, function() {
-				clusterCurrentMemory();
 				callback();
 			});
 		});
@@ -125,6 +125,11 @@
 	function clusterCurrentMemory() {
 		var vectors = fragments.map(function(f){return f["vector"];});
 		clustering = new kmeans.Clustering(vectors, numClusters);
+		//annotate fragments
+		var indexSequence = clustering.getIndexSequence();
+		for (var i = 0; i < fragments.length; i++) {
+			fragments[i]["clusterIndex"] = indexSequence[i];
+		}
 	}
 	
 	app.get('/getNextFragment', function(request, response, next) {
@@ -132,11 +137,14 @@
 		var newFragmentLength = setFragmentLength(parseFloat(request.query.fragmentlength));
 		//make new fragments if list empty or parameters changed
 		if (newFadeLength || newFragmentLength || !currentWavSequence || currentWavSequence.length == 0) {
-			//setupTest(filename, function() {
-				currentCharSequence = clustering.getCharSequence();
+			if (playClusters) {
+				var currentClusterSequence = clustering.getClusterSequence();
+				currentWavSequence = indicesToWavList(currentClusterSequence);
+			} else {
+				var currentCharSequence = clustering.getCharSequence();
 				currentWavSequence = charsToWavList(currentCharSequence);
-				pushNextFragment(response);
-			//});
+			}
+			pushNextFragment(response);
 		} else {
 			pushNextFragment(response);
 		}
@@ -161,7 +169,7 @@
 		var writer = new wav.Writer();
 		writer.pipe(sink);
 		writer.push(currentWavSequence.shift());
-		randomElementIndices.shift();
+		currentIndexSequence.shift();
 		writer.end();
 	}
 	
@@ -334,13 +342,18 @@
 	}
 	
 	function charsToWavList(chars) {
-		randomElementIndices = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
-		return audio.fragmentsToWavList(randomElementIndices.map(function(i){return fragments[i];}), fadeLength);
+		currentIndexSequence = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		return audio.fragmentsToWavList(currentIndexSequence.map(function(i){return fragments[i];}), fadeLength);
 	}
 	
 	function charsToWav(chars) {
-		var randomElementIndices = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
-		return indicesToWav(randomElementIndices);
+		currentIndexSequence = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		return indicesToWav(currentIndexSequence);
+	}
+	
+	function indicesToWavList(fragmentIndices) {
+		currentIndexSequence = fragmentIndices;
+		return audio.fragmentsToWavList(fragmentIndices.map(function(i){return fragments[i];}), fadeLength);
 	}
 	
 	function indicesToWav(fragmentIndices) {

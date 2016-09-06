@@ -67,7 +67,7 @@
 						// set the height based on the calculations above
 						//var height = d3.select(iElement[0])[0][0].offsetHeight - 20; // 20 is for paddings and can be changed
 						
-						xScale = d3.scale.linear().domain([-3, 3]).range([padding, width-padding]),
+						xScale = d3.scale.linear().domain([0, 40]).range([padding, width-padding]),
 						yScale = d3.scale.linear().domain([-3, 3]).range([height-padding, padding]),
 						sizeScale = d3.scale.linear().domain([-3, 3]).range([5, 20]),
 						colorScale = d3.scale.linear().domain([-3, 3]).rangeRound([45, 360]);
@@ -83,12 +83,12 @@
 							.attr("cx", getXValue)
 							.attr("cy", getYValue)
 							.transition()
-								.duration(500) // time of duration
+								.duration(100) // time of duration
 								.attr("r", getR); // width based on scale
 						
 						circles
 							.transition()
-								.duration(500) // time of duration
+								.duration(100) // time of duration
 								.style("fill", getHsl)
 								.style("opacity", 0.2)
 								.attr("r", getR) // width based on scale
@@ -101,22 +101,22 @@
 					
 					
 					function getXValue(d, i) {
-						return xScale(d.vector[0]);
+						return xScale(d.clusterIndex);
 					}
 					
 					function getYValue(d, i) {
-						return yScale(d.vector[1]);
+						return yScale(d.vector[0]);
 					}
 					
 					function getR(d) {
-						return sizeScale(d.vector[2]);
+						return sizeScale(d.vector[1]);
 					}
 					
 					function getHsl(d) {
 						/*if (scope.playing.indexOf(d["@id"]) >= 0) {
 							return "black";
 						}*/
-						return "hsl(" + colorScale(d.vector[3]) + ", 80%, 50%)";
+						return "hsl(" + colorScale(d.vector[2]) + ", 80%, 50%)";
 					}
 					
 					function getRgb(d) {

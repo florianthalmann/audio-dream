@@ -12,8 +12,9 @@ module.exports = Analyzer;
 	var featureFolder = 'features/';
 	var currentPath;
 	
-	var FEATURES = {onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody', pitch:'vamp:cepstral-pitchtracker:cepstral-pitchtracker:notes'};
-	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.amp, FEATURES.centroid, FEATURES.mfcc, FEATURES.chroma];
+	var FEATURES = {beats:'vamp:qm-vamp-plugins:qm-barbeattracker:beats', onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody', pitch:'vamp:vamp-aubio:aubiopitch:frequency'};
+	var FEATURE_SELECTION = [FEATURES.beats, FEATURES.amp, FEATURES.pitch, FEATURES.melody];
+	var SHORT_FEATURE_SELECTION = FEATURE_SELECTION.map(function(f){return f.slice(f.lastIndexOf(':')+1);});
 	
 	var extractFeatures = function(path, callback) {
 		currentPath = path;
@@ -39,7 +40,7 @@ module.exports = Analyzer;
 	var getFragmentsAndSummarizedFeatures = function(path, fragmentLength) {
 		var files = fs.readdirSync(featureFolder);
 		var name = path.replace('.wav', '');
-		files = files.filter(function(f){return f.indexOf(name+'_') == 0;});
+		files = files.filter(function(f){return f.indexOf(name+'_') == 0 && SHORT_FEATURE_SELECTION.indexOf(f.slice(f.lastIndexOf('_')+1, f.lastIndexOf('.'))) >= 0;});
 		files = files.map(function(f){return featureFolder+f;});
 		if (files.length < FEATURE_SELECTION.length) {
 			//incomplete feature files, return no fragments
@@ -105,7 +106,7 @@ module.exports = Analyzer;
 	}
 	
 	function createEvent(file, time, duration) {
-		return {"file":file, "time":time, "duration":duration, "vector":[duration]};
+		return {"file":file, "time":time, "duration":duration, "vector":[]};
 	}
 	
 	function addSummarizedFeature(path, segments) {
