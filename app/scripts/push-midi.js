@@ -4,9 +4,21 @@
 function PushMidi(socket, $scope) {
 	
 	var midiAccess, pushOutput;
+	var dialLine = ["","","","","","","",""];
+	var controlMaps = {
+		71:{name:"mem", call:$scope.changeMaxNumFragments, init:200, min:10, max:1000, incr:10},
+		72:{name:"clu", call:$scope.changeClusterProportion, init:0.1, min:0.05, max:0.5, incr:0.05},
+		73:{name:"lis", call:$scope.changeListeningThreshold, init:0.5, min:0, max:1, incr:0.1},
+		74:{name:"rec", call:$scope.changeRecordingLength, init:5, min:1, max:10, incr:1},
+		//74:{name:"seg", call:$scope.changeSegmentLength, init:5, min:1, max:10, incr:1},
+		75:{name:"fad", call:$scope.changeFadeLength, init:0.5, min:0.1, max:2.5, incr:0.1},
+		76:{name:"eff", call:$scope.changeEffectsAmount, init:0.3, min:0, max:2, incr:0.01},
+		77:{name:"gai", call:$scope.changeGain, init:1, min:0.1, max:2, incr:0.01}
+	};
+	var currentControlValues = {};
 	
 	if (navigator.requestMIDIAccess) {
-		navigator.requestMIDIAccess().then(function(access) {
+		navigator.requestMIDIAccess({sysex:true}).then(function(access) {
 			midiAccess = access;
 			init();
 		});
@@ -22,29 +34,21 @@ function PushMidi(socket, $scope) {
 			}
 		}
 		midiAccess.inputs.forEach(function(entry) {entry.onmidimessage = onMIDIMessage;});
+		reset();
+	}
+	
+	function reset() {
 		for (var i = 36; i < 100; i++) {
 			setPadLight(i);
 		}
-	}
-	
-	function setPadLight(note) {
-		var color = Math.floor(Math.random()*128);
-		var noteOnMessage = [0x90, note, color];
-		sendMessageToPush(noteOnMessage);
-	}
-	
-	function sendMessageToPush(message) {
-		if (pushOutput) {
-			pushOutput.send(message);
+		for (var i = 0; i < 4; i++) {
+			clearDisplayLine(i);
+		}
+		for (var num in controlMaps) {
+			currentControlValues[num] = controlMaps[num].init;
+			setParam(num, currentControlValues[num]);
 		}
 	}
-	
-	/*function setStatusLine(index, string) {
-		self.statusLine[index] = string
-		status = ""
-		for i in self.statusLine:
-			status += str(self.statusLine[i]) + " | "
-        self.setDisplayLine(3, status)*/
 	
 	function onMIDIMessage(event) {
 		var str = "MIDI message received at timestamp " + event.timestamp + "[" + event.data.length + " bytes]: ";
@@ -63,22 +67,74 @@ function PushMidi(socket, $scope) {
 		}
 	}
 	
-	function changeParam(index, value) {
-		if (index == 1) {
-			$scope.changeFadeLength(3.0*value/128);
+	function changeParam(index, change) {
+		if (controlMaps[index]) {
+			if (change > 64) {
+				change -= 128;
+			}
+			var factor = 1.0/controlMaps[index].incr;
+			var newValue = currentControlValues[index] + change*controlMaps[index].incr;
+			newValue = Math.round(newValue*factor)/factor;
+			setParam(index, newValue);
 		}
 	}
 	
-	function changeServerParam(param, value) {
-		socket.emit('changeParam', {param:param, value:value});
+	function setParam(index, value) {
+		if (controlMaps[index] && controlMaps[index].min <= value && value <= controlMaps[index].max) {
+			currentControlValues[index] = value;
+			controlMaps[index].call(value);
+			setDialStatus(index-71, controlMaps[index].name+' '+value);
+		}
 	}
 	
-	function sendMiddleC( midiAccess, portID ) {
-	  var noteOnMessage = [0x90, 60, 0x7f];    // note on, middle C, full velocity
-	  var output = midiAccess.outputs.get(portID);
-	  output.send( noteOnMessage );  //omitting the timestamp means send immediately.
-	  output.send( [0x80, 60, 0x40], window.performance.now() + 1000.0 ); // Inlined array creation- note off, middle C,  
-	                                                                      // release velocity = 64, timestamp = now + 1000ms.
+	function setPadLight(note) {
+		var color = Math.floor(Math.random()*128);
+		var noteOnMessage = [0x90, note, color];
+		sendMessageToPush(noteOnMessage);
+	}
+	
+	function setDialStatus(index, string) {
+		if (index%2 == 0) {
+			string = padRight(string, 9);
+		} else {
+			string = padRight(string, 8);
+		}
+		dialLine[index] = string;
+		setDisplayLine(0, dialLine.join(""), false);
+	}
+	
+	function setDisplayLine(index, string) {
+		var ascii = Array.prototype.map.call(string, function(c) { return c.charCodeAt(0); });
+		while (ascii.length < 68) {
+			ascii.push(32);
+		}
+		message = [71,127,21,24+index,0,69,0];
+		message = message.concat(ascii);
+		sendSysexMessageToPush(message);
+	}
+	
+	function clearDisplayLine(index) {
+		sendSysexMessageToPush([71,127,21,28+index,0,0]);
+	}
+	
+	function sendMessageToPush(message) {
+		if (pushOutput) {
+			pushOutput.send(message);
+		}
+	}
+	
+	function sendSysexMessageToPush(message) {
+		message.splice(0, 0, 240);
+		message.push(247);
+		sendMessageToPush(message);
+	}
+	
+	function padRight(string, spaceCount) {
+		var spaces = new Array(spaceCount+1).join(' ');
+		if (string) {
+			return (string + spaces).substring(0, spaces.length);
+		}
+		return spaces;
 	}
 	
 }

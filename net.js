@@ -10,7 +10,7 @@ module.exports = Net;
 	var Lstm = function (data_sents) {
 		
 		var INTERVAL = 10;
-		var FIRST_CHAR = 65;
+		var FIRST_CHAR = 32;
 		
 		// model parameters
 		var generator = 'lstm'; // can be 'rnn' or 'lstm'

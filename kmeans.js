@@ -6,17 +6,18 @@ module.exports = Kmeans;
 	
 	var clusterfck = require('clusterfck');
 	
-	var FIRST_CHAR = 65;
+	var FIRST_CHAR = 32;
 	var MEASURE_CONTINUITY_WITH_INTERSECTION = true;
 	
 	var Clustering = function() {
 		
 		var clusters, centroids;
 		
-		this.cluster = function(vectors, clusterCount) {
+		//clusterFactor is the proportional amount of clusters per fragment, e.g. 0.1 is 1 cluster per 10 fragments
+		this.cluster = function(vectors, clusterFactor) {
 			var previousClusters = clusters;
 			var previousCentroids = centroids;
-			clusterCount = Math.round(vectors.length/10);
+			var clusterCount = Math.min(128, Math.round(vectors.length*clusterFactor));
 			//clusters with the indices of all feature vectors
 			console.log("Clustering...");
 			var kmeans = new clusterfck.Kmeans();

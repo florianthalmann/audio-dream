@@ -4,8 +4,9 @@
 function AudioPlayer(audioContext, $scope, socket) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
-	var FRAGMENT_LENGTH; //seconds
-	var FADE_LENGTH = 0.5; //seconds
+	var MIN_DELAY_BETWEEN_SOURCES = 0.01; //seconds
+	var FADE_LENGTH = 2; //seconds
+	var EFFECTS_AMOUNT = 3; //1-10
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
@@ -16,16 +17,28 @@ function AudioPlayer(audioContext, $scope, socket) {
 	init();
 	
 	function init() {
+		mainGain = audioContext.createGain();
+		mainGain.connect(audioContext.destination);
 		reverbSend = audioContext.createConvolver();
-		reverbSend.connect(audioContext.destination);
+		reverbSend.connect(mainGain);
 		loadAudio('impulse_rev.wav', function(buffer) {
 			reverbSend.buffer = buffer;
 		});
 	}
 	
 	$scope.changeFadeLength = function(value) {
-		console.log(value)
 		FADE_LENGTH = value;
+		socket.emit('changeFadeLength', {value:value});
+	}
+	
+	$scope.changeEffectsAmount = function(value) {
+		EFFECTS_AMOUNT = value;
+	}
+	
+	$scope.changeGain = function(value) {
+		if (mainGain) {
+			mainGain.gain.value = value;
+		}
 	}
 	
 	socket.on('fragments', function (data) {
@@ -67,7 +80,12 @@ function AudioPlayer(audioContext, $scope, socket) {
 		console.log(currentSource.buffer.duration)
 		//create next sources and wait or end and reset
 		createNextSource(function() {
-			nextSourceTime = startTime+(currentSource.buffer.duration/currentSource.playbackRate.value)-(2*FADE_LENGTH);
+			var currentSourceDuration = currentSource.buffer.duration/currentSource.playbackRate.value;
+			//console.log(currentSourceDuration, (2*FADE_LENGTH)+MIN_DELAY_BETWEEN_SOURCES)
+			//if (currentSourceDuration > (2*FADE_LENGTH)+MIN_DELAY_BETWEEN_SOURCES) {
+				currentSourceDuration -= 2*FADE_LENGTH;
+			//}
+			nextSourceTime = startTime+currentSourceDuration;
 			var wakeupTime = (nextSourceTime-audioContext.currentTime-SCHEDULE_AHEAD_TIME)*1000;
 			timeoutID = setTimeout(function() {
 				playLoop();
@@ -83,7 +101,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 		}
 	}
 	
-	function fadeBuffer(buffer, durationInSamples) {
+	/*function fadeBuffer(buffer, durationInSamples) {
 		var fadeSamples = buffer.sampleRate*FADE_LENGTH;
 		for (var i = 0; i < buffer.numberOfChannels; i++) {
 			var currentChannel = buffer.getChannelData(i);
@@ -92,12 +110,12 @@ function AudioPlayer(audioContext, $scope, socket) {
 				currentChannel[durationInSamples-j-1] *= j/fadeSamples;
 			}
 		}
-	}
+	}*/
 	
 	function createNextSource(callback) {
 		var source = audioContext.createBufferSource();
 		var panner = audioContext.createPanner();
-		panner.connect(audioContext.destination);
+		panner.connect(mainGain);
 		var dryGain = audioContext.createGain();
 		dryGain.connect(panner);
 		dryGain.gain.value = 0.8;
@@ -115,15 +133,19 @@ function AudioPlayer(audioContext, $scope, socket) {
 			dryGain.disconnect();
 			reverbGain.disconnect();
 		};
-		requestAudio(function(loadedBuffer) {
-			source.buffer = loadedBuffer;
+		requestAudio(function(loadedBuffer, err) {
+			if (loadedBuffer) {
+				source.buffer = loadedBuffer;
+			} else {
+				source.buffer = audioContext.createBuffer(2, 44100, 44100); //nice hack, insert one second of silence
+			}
 			nextSource = source;
 			callback();
 		});
 	}
 	
 	function requestAudio(callback) {
-		var query = "http://localhost:8088/getNextFragment?fadelength="+FADE_LENGTH+"&fragmentlength="+FRAGMENT_LENGTH;
+		var query = "http://localhost:8088/getNextFragment";
 		loadAudio(query, callback);
 	}
 	
@@ -133,8 +155,11 @@ function AudioPlayer(audioContext, $scope, socket) {
 				console.log('audio from server is faulty');
 				return;
 			}
-			console.log(response);
-			audioContext.decodeAudioData(response, callback);
+			if (response.byteLength > 1000) {
+				audioContext.decodeAudioData(response, callback);
+			} else {
+				callback();
+			}
 		});
 	}
 	

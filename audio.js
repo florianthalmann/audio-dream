@@ -56,6 +56,13 @@ module.exports = Audio;
 		return wavs;
 	}
 	
+	var fragmentToWav = function(fragment, fadeLength) {
+		if (!isNaN(fadeLength)) {
+			FADE_LENGTH = fadeLength;
+		}
+		return getWavOfFragment(fragment);
+	}
+	
 	var fragmentsToWav = function(fragments, fadeLength) {
 		if (!isNaN(fadeLength)) {
 			FADE_LENGTH = fadeLength;
@@ -147,6 +154,7 @@ module.exports = Audio;
 	
 	global.init = init;
 	global.play = play;
+	global.fragmentToWav = fragmentToWav;
 	global.fragmentsToWav = fragmentsToWav;
 	global.fragmentsToWavList = fragmentsToWavList;
 	global.getWavIntoMemory = getWavIntoMemory;

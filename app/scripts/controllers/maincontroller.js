@@ -9,14 +9,8 @@
 			window.AudioContext = window.AudioContext || window.webkitAudioContext;
 			var audioContext = new AudioContext();
 			
-			var currentInputSource, currentOutputDevice, recorder, recordingTimeout;
-			var player = new AudioPlayer(audioContext, $scope, socket);
-			var pushMidi = new PushMidi(socket, $scope);
-			var analyser = audioContext.createAnalyser();
-			analyser.fftSize = 32;
-			var fftData = new Uint8Array(analyser.frequencyBinCount);
-			var isAnalyzing;
-			var previousAmps = [0,0,0];
+			var LISTENING_THRESHOLD = 3;
+			var RECORDING_LENGTH = 10; //in seconds
 			
 			///////// AUDIO IO ////////
 			
@@ -92,6 +86,22 @@
 			
 			///////// PLAYING AND RECORDING ////////
 			
+			$scope.changeMaxNumFragments = function(value) {
+				socket.emit('changeMaxNumFragments', {value:value});
+			}
+			
+			$scope.changeClusterProportion = function(value) {
+				socket.emit('changeClusterProportion', {value:value});
+			}
+			
+			$scope.changeListeningThreshold = function(threshold) {
+				LISTENING_THRESHOLD = threshold;
+			}
+			
+			$scope.changeRecordingLength = function(length) {
+				RECORDING_LENGTH = length;
+			}
+			
 			$scope.clearMemory = function() {
 				socket.emit('clearMemory');
 			}
@@ -120,7 +130,7 @@
 						recorder.exportWAV(postBlob);
 						keepRecording();
 						recorder.clear();
-					}, 10000);
+					}, RECORDING_LENGTH*1000);
 				}
 			}
 			
@@ -143,6 +153,17 @@
 				};
 				request.send(blob);
 			}
+			
+			///////// INIT ///////
+			var currentInputSource, currentOutputDevice, recorder, recordingTimeout;
+			var player = new AudioPlayer(audioContext, $scope, socket);
+			var pushMidi = new PushMidi(socket, $scope);
+			
+			var analyser = audioContext.createAnalyser();
+			analyser.fftSize = 32;
+			var fftData = new Uint8Array(analyser.frequencyBinCount);
+			var isAnalyzing;
+			var previousAmps = [0,0,0];
 			
 		}]);
 

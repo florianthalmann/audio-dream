@@ -1,6 +1,6 @@
 (function() {
 	
-	require('events').EventEmitter.prototype._maxListeners = 100;
+	require('events').EventEmitter.prototype._maxListeners = 300;
 	
 	var express = require('express');
 	var bodyParser = require('body-parser');
@@ -24,19 +24,20 @@
 	
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
-	var numClusters;
-	var fragmentLength, fadeLength;
-	var filename = 'ligeti1.wav';
+	var CLUSTER_PROPORTION = 0.1;
+	var fragmentLength;
+	var FADE_LENGTH = 0.5;
 	
 	var fragments = [];
-	var sentFragments = [];
 	var clustering = new kmeans.Clustering()
 	var lstm;
-	var isSampling = false;
 	
-	var playClusters = false;
+	var MODES = {NET:"NET", SEQUENCE:"SEQUENCE", CLUSTERS:"CLUSTERS"};
+	var currentMode = MODES.NET;
 	
-	var currentIndexSequence, currentWavSequence;
+	var MAX_NUM_FRAGMENTS = 200;
+	
+	var currentIndexSequence;
 	
 	init();
 	//test();
@@ -48,10 +49,10 @@
 			if (files.length > 0) {
 				currentFileCount = Math.max.apply(Math, files.map(function(f){return parseInt(f.slice(0,-4))}));
 				async.eachSeries(files, loadIntoMemory, function(){ //loadIntoMemory analyzeAndLoad
+					forgetBeginning();
 					clusterCurrentMemory();
 					emitFragments();
-					updateLstm();
-					startSampling();
+					//updateLstm();
 					console.log("memory loaded and clustered");
 					//testSamplingTheNet();
 				});
@@ -72,20 +73,21 @@
 		});
 	}
 	
-	/* ITERATIVE CLUSTERING IN BEGINNING
-	async.eachSeries(files, loadIntoMemoryAndCluster, function(){ //loadIntoMemory analyzeAndLoad
-		//testIterativeClustering();
-		clusterCurrentMemory();
-		emitFragments();
-		console.log("memory loaded and clustered");
-		//testSamplingTheNet();
-	});*/
-	
 	io.on('connection', function (s) {
 		socket = s;
 		emitFragments();
-		socket.on('changeParam', function(data) {
-			console.log("param "+data.param+" changed to "+data.value);
+		//emitParamValues();
+		socket.on('changeFadeLength', function(data) {
+			FADE_LENGTH = data.value;
+			console.log("FADE_LENGTH changed to "+data.value);
+		});
+		socket.on('changeMaxNumFragments', function(data) {
+			MAX_NUM_FRAGMENTS = data.value;
+			console.log("MAX_NUM_FRAGMENTS changed to "+data.value);
+		});
+		socket.on('changeClusterProportion', function(data) {
+			CLUSTER_PROPORTION = data.value;
+			console.log("CLUSTER_PROPORTION changed to "+data.value);
 		});
 		socket.on('clearMemory', function() {
 			clearMemory();
@@ -147,8 +149,8 @@
 	}
 	
 	function forgetBeginning() {
-		if (fragments.length > 50) {
-			forgottenFragments = fragments.length-50;
+		if (fragments.length > MAX_NUM_FRAGMENTS) {
+			forgottenFragments = fragments.length-MAX_NUM_FRAGMENTS;
 			fragments = fragments.slice(forgottenFragments);
 			return forgottenFragments;
 		}
@@ -175,7 +177,7 @@
 	
 	function clusterCurrentMemory() {
 		var vectors = fragments.map(function(f){return f["vector"];});
-		clustering.cluster(vectors, numClusters);
+		clustering.cluster(vectors, CLUSTER_PROPORTION);
 		//annotate fragments
 		var indexSequence = clustering.getIndexSequence();
 		for (var i = 0; i < fragments.length; i++) {
@@ -184,16 +186,14 @@
 	}
 	
 	app.get('/getNextFragment', function(request, response, next) {
-		var newFadeLength = setFadeLength(parseFloat(request.query.fadelength));
-		var newFragmentLength = setFragmentLength(parseFloat(request.query.fragmentlength));
 		//make new fragments if list empty or parameters changed
-		if (newFadeLength || newFragmentLength || !currentWavSequence || currentWavSequence.length == 0) {
-			if (playClusters) {
-				var currentClusterSequence = clustering.getClusterSequence();
-				currentWavSequence = indicesToWavList(currentClusterSequence);
+		if (!currentIndexSequence || currentIndexSequence.length == 0) {
+			if (currentMode == MODES.NET && lstm) {
+				currentIndexSequence = getLstmSample();
+			} else if (currentMode == MODES.CLUSTERS) {
+				currentIndexSequence = clustering.getClusterSequence();
 			} else {
-				var currentCharSequence = clustering.getCharSequence();
-				currentWavSequence = charsToWavList(currentCharSequence);
+				currentIndexSequence = charsToIndexList(clustering.getCharSequence());
 			}
 			pushNextFragment(response);
 		} else {
@@ -201,34 +201,58 @@
 		}
 	});
 	
-	function setFadeLength(newFadeLength) {
-		if (!isNaN(newFadeLength) && newFadeLength != fadeLength) {
-			fadeLength = newFadeLength;
-			return true;
-		}
-	}
-	
-	function setFragmentLength(newFragmentLength) {
-		if (!isNaN(newFragmentLength) && newFragmentLength != fragmentLength) {
-			fragmentLength = newFragmentLength;
-			return true;
-		}
-	}
-	
 	function pushNextFragment(sink) {
-		console.log(currentIndexSequence[0], currentIndexSequence.length)
 		emitNextFragmentIndex();
 		var writer = new wav.Writer();
 		writer.pipe(sink);
-		writer.push(currentWavSequence.shift());
-		currentIndexSequence.shift();
+		var nextFragment = fragments[currentIndexSequence.shift()];
+		writer.push(audio.fragmentToWav(nextFragment, FADE_LENGTH));
 		writer.end();
 	}
 	
-	////// tests
+	function updateLstm() {
+		charSentences = [clustering.getCharSequence()]
+		if (!lstm) {
+			lstm = new net.Lstm(charSentences);
+			lstm.learn();
+		} else {
+			lstm.replaceSentences(charSentences);
+		}
+	}
+	
+	function getLstmSample() {
+		var sample = lstm.sample();
+		sample = clustering.toValidCharSequence(sample);
+		console.log(sample)
+		return charsToIndexList(sample);
+	}
+	
+	function charsToIndexList(chars) {
+		return Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		//return audio.fragmentsToWavList(currentIndexSequence.map(function(i){return fragments[i];}), FADE_LENGTH);
+	}
+	
+	/*function charsToWav(chars) {
+		return Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		//return indicesToWav(currentIndexSequence);
+	}
+	
+	function indicesToWavList(fragmentIndices) {
+		currentIndexSequence = fragmentIndices;
+		//return audio.fragmentsToWavList(fragmentIndices.map(function(i){return fragments[i];}), FADE_LENGTH);
+	}
+	
+	function indicesToWav(fragmentIndices) {
+		return audio.fragmentsToWav(fragmentIndices.map(function(i){return fragments[i];}), FADE_LENGTH);
+	}*/
+	
+	
+	
+	
+	////// TESTS
 	
 	function test() {
-		setupTest(filename, function() {
+		setupTest('ligeti.wav', function() {
 			testOriginalSequence();
 		});
 	}
@@ -255,72 +279,13 @@
 		audio.play(charsToWav(chars));
 	}
 	
-	function testSamplingTheNet() {
-		//create list of sentences of 50 chars
-		var charSentences = clustering.getCharSequence().match(/.{1,50}/g);
-		lstm = new net.Lstm(charSentences);
-		lstm.learn();
-		startSampling();
-	}
-	
 	function setupTest(filename, callback) {
 		audio.init(filename, audioFolder, function(){
 			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength);
 			var vectors = fragments.map(function(f){return f["vector"];});
-			clustering.cluster(vectors, numClusters);
+			clustering.cluster(vectors, CLUSTER_PROPORTION);
 			callback();
 		});
-	}
-	
-	function updateLstm() {
-		charSentences = [clustering.getCharSequence()]
-		if (!lstm) {
-			lstm = new net.Lstm(charSentences);
-			lstm.learn();
-		} else {
-			lstm.replaceSentences(charSentences);
-		}
-	}
-	
-	function startSampling() {
-		isSampling = true;
-		samplingLoop();
-	}
-	
-	function samplingLoop() {
-		if (isSampling) {
-			var sample = lstm.sample();
-			sample = clustering.toValidCharSequence(sample);
-			console.log(sample)
-			currentWavSequence = charsToWavList(sample);
-			setTimeout(function() {
-				samplingLoop();
-			}, 10000);
-		}
-	}
-	
-	function stopSampling() {
-		isSampling = false;
-		audio.end();
-	}
-	
-	function charsToWavList(chars) {
-		currentIndexSequence = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
-		return audio.fragmentsToWavList(currentIndexSequence.map(function(i){return fragments[i];}), fadeLength);
-	}
-	
-	function charsToWav(chars) {
-		currentIndexSequence = Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
-		return indicesToWav(currentIndexSequence);
-	}
-	
-	function indicesToWavList(fragmentIndices) {
-		currentIndexSequence = fragmentIndices;
-		return audio.fragmentsToWavList(fragmentIndices.map(function(i){return fragments[i];}), fadeLength);
-	}
-	
-	function indicesToWav(fragmentIndices) {
-		return audio.fragmentsToWav(fragmentIndices.map(function(i){return fragments[i];}), fadeLength);
 	}
 	
 }).call(this);
