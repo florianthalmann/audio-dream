@@ -5,6 +5,7 @@ function PushMidi(socket, $scope) {
 	
 	var midiAccess, pushOutput;
 	var dialLine = ["","","","","","","",""];
+	var toggleLine = ["","","","","","","",""];
 	var controlMaps = {
 		71:{name:"mem", call:$scope.changeMaxNumFragments, init:200, min:10, max:1000, incr:10},
 		72:{name:"clu", call:$scope.changeClusterProportion, init:0.1, min:0.05, max:0.5, incr:0.05},
@@ -14,6 +15,12 @@ function PushMidi(socket, $scope) {
 		75:{name:"fad", call:$scope.changeFadeLength, init:0.5, min:0.1, max:2.5, incr:0.1},
 		76:{name:"eff", call:$scope.changeEffectsAmount, init:0.3, min:0, max:2, incr:0.01},
 		77:{name:"gai", call:$scope.changeGain, init:1, min:0.1, max:2, incr:0.01}
+	};
+	var toggleMaps = {
+		20:{name:"rec", call:$scope.toggleRecording},
+		21:{name:"play", call:$scope.togglePlaying},
+		22:{name:"auto", call:$scope.toggleAutoPlay},
+		23:{name:"clear", call:$scope.clearMemory},
 	};
 	var currentControlValues = {};
 	
@@ -48,6 +55,9 @@ function PushMidi(socket, $scope) {
 			currentControlValues[num] = controlMaps[num].init;
 			setParam(num, currentControlValues[num]);
 		}
+		for (var num in toggleMaps) {
+			setToggleStatus(num-20, toggleMaps[num].name);
+		}
 	}
 	
 	function onMIDIMessage(event) {
@@ -55,7 +65,7 @@ function PushMidi(socket, $scope) {
 		for (var i=0; i<event.data.length; i++) {
 			str += "0x" + event.data[i].toString(16) + " ";
 		}
-		console.log(str, event.data);
+		//console.log(str, event.data);
 		
 		if (event.data[0] == 0x90) {
 			//note on
@@ -76,6 +86,8 @@ function PushMidi(socket, $scope) {
 			var newValue = currentControlValues[index] + change*controlMaps[index].incr;
 			newValue = Math.round(newValue*factor)/factor;
 			setParam(index, newValue);
+		} else if (toggleMaps[index] && change == 127) {
+			setToggle(index);
 		}
 	}
 	
@@ -85,6 +97,22 @@ function PushMidi(socket, $scope) {
 			controlMaps[index].call(value);
 			setDialStatus(index-71, controlMaps[index].name+' '+value);
 		}
+	}
+	
+	function setToggle(index) {
+		setToggleStatus(index-20, toggleMaps[index].name);
+		setToggleLight(index, toggleMaps[index].call());
+	}
+	
+	function setToggleLight(index, isOn) {
+		var color;
+		if (isOn) {
+			color = 4;
+		} else {
+			color = 0;
+		}
+		var noteOnMessage = [0xb0, index, color];
+		sendMessageToPush(noteOnMessage);
 	}
 	
 	function setPadLight(note) {
@@ -101,6 +129,16 @@ function PushMidi(socket, $scope) {
 		}
 		dialLine[index] = string;
 		setDisplayLine(0, dialLine.join(""), false);
+	}
+	
+	function setToggleStatus(index, string) {
+		if (index%2 == 0) {
+			string = padRight(string, 9);
+		} else {
+			string = padRight(string, 8);
+		}
+		toggleLine[index] = string;
+		setDisplayLine(3, toggleLine.join(""), false);
 	}
 	
 	function setDisplayLine(index, string) {

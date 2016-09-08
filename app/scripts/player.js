@@ -50,6 +50,10 @@ function AudioPlayer(audioContext, $scope, socket) {
 		nextFragmentIndex = data.nextFragmentIndex;
 	});
 	
+	this.isPlaying = function() {
+		return isPlaying;
+	}
+	
 	this.play = function() {
 		if (!isPlaying) {
 			isPlaying = true;
@@ -77,7 +81,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 				$scope.$apply();
 			}, 100);
 		}, 1000*(delay+FADE_LENGTH));
-		console.log(currentSource.buffer.duration)
+		//console.log(currentSource.buffer.duration)
 		//create next sources and wait or end and reset
 		createNextSource(function() {
 			var currentSourceDuration = currentSource.buffer.duration/currentSource.playbackRate.value;

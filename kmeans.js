@@ -9,7 +9,7 @@ module.exports = Kmeans;
 	var FIRST_CHAR = 32;
 	var MEASURE_CONTINUITY_WITH_INTERSECTION = true;
 	
-	var Clustering = function() {
+	var Clustering = function(server) {
 		
 		var clusters, centroids;
 		
@@ -19,12 +19,11 @@ module.exports = Kmeans;
 			var previousCentroids = centroids;
 			var clusterCount = Math.min(128, Math.round(vectors.length*clusterFactor));
 			//clusters with the indices of all feature vectors
-			console.log("Clustering...");
 			var kmeans = new clusterfck.Kmeans();
 			clusters = kmeans.cluster(vectors, clusterCount);
 			clusters = clusters.map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
 			centroids = kmeans.centroids;
-			console.log("Clustered " + vectors.length + " vectors into " + clusters.length + " clusters");
+			server.emitInfo("clustered " + vectors.length + " vectors into " + clusters.length + " clusters");
 			if (previousClusters && previousCentroids) {
 				permuteClustersForContinuity(previousClusters, previousCentroids);
 			}

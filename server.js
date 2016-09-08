@@ -1,5 +1,7 @@
 (function() {
 	
+	var self = this;
+	
 	require('events').EventEmitter.prototype._maxListeners = 300;
 	
 	var express = require('express');
@@ -29,7 +31,7 @@
 	var FADE_LENGTH = 0.5;
 	
 	var fragments = [];
-	var clustering = new kmeans.Clustering()
+	var clustering = new kmeans.Clustering(this);
 	var lstm;
 	
 	var MODES = {NET:"NET", SEQUENCE:"SEQUENCE", CLUSTERS:"CLUSTERS"};
@@ -52,8 +54,8 @@
 					forgetBeginning();
 					clusterCurrentMemory();
 					emitFragments();
-					//updateLstm();
-					console.log("memory loaded and clustered");
+					updateLstm();
+					self.emitInfo("memory loaded and clustered");
 					//testSamplingTheNet();
 				});
 			}
@@ -69,7 +71,9 @@
 			fragments = [];
 			emitFragments();
 			currentFileCount = 0;
-			console.log("memory cleared");
+			currentIndexSequence = null;
+			clustering = new kmeans.Clustering(this);
+			self.emitInfo("forgot absolutely everything");
 		});
 	}
 	
@@ -93,6 +97,13 @@
 			clearMemory();
 		});
 	});
+	
+	this.emitInfo = function(text) {
+		console.log(text);
+		if (socket) {
+			socket.emit('aiOutput', { text:text });
+		}
+	}
 	
 	function emitFragments() {
 		if (socket) {
@@ -119,7 +130,9 @@
 				response.send('wav saved at ' + filename);
 				analyzeAndLoad(filename, function() {
 					var forgottenFragments = forgetBeginning();
-					console.log("forgot "+ forgottenFragments + " fragments")
+					if (forgottenFragments) {
+						self.emitInfo("forgot "+ forgottenFragments + " fragments")
+					}
 					clusterCurrentMemory();
 					updateLstm();
 					emitFragments();
@@ -213,7 +226,7 @@
 	function updateLstm() {
 		charSentences = [clustering.getCharSequence()]
 		if (!lstm) {
-			lstm = new net.Lstm(charSentences);
+			lstm = new net.Lstm(charSentences, self);
 			lstm.learn();
 		} else {
 			lstm.replaceSentences(charSentences);
@@ -223,7 +236,7 @@
 	function getLstmSample() {
 		var sample = lstm.sample();
 		sample = clustering.toValidCharSequence(sample);
-		console.log(sample)
+		self.emitInfo("sampled neural network: "+sample);
 		return charsToIndexList(sample);
 	}
 	
@@ -263,7 +276,7 @@
 		async.eachSeries(clusters, function(cluster, callback) {
 			var wav = indicesToWav(cluster);
 			var duration = wav.length/44100/2/2;
-			console.log("playing cluster " + i + " with size " + cluster.length + " and duration " + duration);
+			self.emitInfo("playing cluster " + i + " with size " + cluster.length + " and duration " + duration);
 			audio.play(wav, true);
 			i++;
 			setTimeout(callback, (1000*duration)-50);

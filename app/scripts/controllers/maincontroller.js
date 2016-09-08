@@ -12,11 +12,29 @@
 			var LISTENING_THRESHOLD = 3;
 			var RECORDING_LENGTH = 10; //in seconds
 			
+			var isRecording, isPlaying;
+			
+			var aiConsoleLines = [];
+			
+			socket.on('aiOutput', function (data) {
+				addAiConsoleLine(data.text);
+			});
+			
+			function addAiConsoleLine(text) {
+				aiConsoleLines.push(text);
+				while (aiConsoleLines.length > 5) {
+					aiConsoleLines.shift();
+				}
+				$scope.aiConsole = aiConsoleLines.join('\n');
+				$scope.$apply();
+			}
+			
 			///////// AUDIO IO ////////
 			
 			if (navigator.mediaDevices) {
 				navigator.mediaDevices.enumerateDevices().then(function(devices) {
 					$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});
+					console.log($scope.audioInputDevices[2])
 					$scope.selectedAudioInputDevice = $scope.audioInputDevices[2];
 					$scope.audioInputDeviceSelected();
 					$scope.$apply();
@@ -63,17 +81,17 @@
 					var sortedAmps = previousAmps.slice().sort();
 					//console.log(previousAmps, sortedAmps)
 					//amp going down
-					/*if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
-						console.log("play")
+					if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
+						console.log(addAiConsoleLine("Auto playing"))
 						player.play();
 					//amp going up
 					} else {
 						sortedAmps.reverse();
 						if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
-							console.log("stop")
+							console.log(addAiConsoleLine("Auto stopped"))
 							player.stop();
 						}
-					}*/
+					}
 					setTimeout(function() {
 						keepAnalyzing();
 					}, 1000);
@@ -106,14 +124,42 @@
 				socket.emit('clearMemory');
 			}
 			
+			$scope.toggleAutoPlay = function() {
+				if (!isAnalyzing) {
+					startAnalyzing();
+					return true;
+				} else {
+					stopAnalyzing();
+					return false;
+				}
+			}
+			
+			$scope.togglePlaying = function() {
+				if (!player.isPlaying()) {
+					$scope.startPlaying();
+					return true;
+				} else {
+					$scope.stopPlaying();
+					return false;
+				}
+			}
+			
 			$scope.startPlaying = function() {
 				player.play();
-				startAnalyzing();
 			}
 			
 			$scope.stopPlaying = function() {
-				stopAnalyzing();
 				player.stop();
+			}
+			
+			$scope.toggleRecording = function() {
+				if (!recorder) {
+					$scope.startRecording();
+					return true;
+				} else {
+					$scope.stopRecording();
+					return false;
+				}
 			}
 			
 			$scope.startRecording = function() {

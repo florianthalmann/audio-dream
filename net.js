@@ -7,7 +7,7 @@ module.exports = Net;
 	var R = require('./lib/recurrentjs/recurrent.js');
 	var Rvis = require('./lib/recurrentjs/vis.js');
 	
-	var Lstm = function (data_sents) {
+	var Lstm = function (data_sents, server) {
 		
 		var INTERVAL = 10;
 		var FIRST_CHAR = 32;
@@ -71,7 +71,6 @@ module.exports = Net;
 					d[txti] = 1;
 				}
 			}
-			console.log(d)
 			// filter by count threshold and create pointers
 			letterToIndex = {};
 			indexToLetter = {};
@@ -324,14 +323,14 @@ module.exports = Net;
 					console.log(predictSentence(model, true, sample_softmax_temperature));
 				}
 			}*/
-			if (tick_iter % 10 === 0) {
+			if (tick_iter % 100 === 0) {
 				// draw argmax prediction
 				var argmax_pred = predictSentence(model, false);
 				// keep track of perplexity
 				var epoch = 'epoch: ' + (tick_iter / epoch_size).toFixed(2);
 				var perplexity ='perplexity: ' + cost_struct.ppl.toFixed(2);
 				var ticktime = 'forw/bwd time per example: ' + tick_time.toFixed(1) + 'ms';
-				console.log(epoch, perplexity, ticktime); //argmax_pred);
+				server.emitInfo(epoch + ", " + perplexity, ticktime); //argmax_pred);
 				if (tick_iter % 100 === 0) {
 					var median_ppl = median(ppl_list);
 					ppl_list = [];
