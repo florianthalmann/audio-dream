@@ -9,6 +9,9 @@ module.exports = Net;
 	
 	var Lstm = function (data_sents) {
 		
+		var INTERVAL = 10;
+		var FIRST_CHAR = 65;
+		
 		// model parameters
 		var generator = 'lstm'; // can be 'rnn' or 'lstm'
 		var hidden_sizes = [20,20]; // list of sizes of hidden layers
@@ -21,7 +24,7 @@ module.exports = Net;
 		
 		// prediction params
 		var sample_softmax_temperature = 1.0; // how peaky model predictions should be
-		var max_chars_gen = 100; // max length of generated sentences
+		var max_chars_gen = 20; // max length of generated sentences
 		// various global var inits
 		var epoch_size = -1;
 		var input_size = -1;
@@ -37,7 +40,7 @@ module.exports = Net;
 		this.learn = function() {
 			reinit();
 			if(iid !== null) { clearInterval(iid); }
-			iid = setInterval(tick, 0); 
+			iid = setInterval(tick, INTERVAL); 
 		}
 		
 		this.stop = function() {
@@ -47,7 +50,7 @@ module.exports = Net;
 		
 		this.resume = function() {
 			if(iid === null) {
-				iid = setInterval(tick, 0); 
+				iid = setInterval(tick, INTERVAL); 
 			}
 		}
 		
@@ -125,9 +128,18 @@ module.exports = Net;
 			pplGraph = new Rvis.Graph();
 			ppl_list = [];
 			tick_iter = 0;
-			// set the input
-			initVocab(data_sents, 1); // takes count threshold for characters
+			//init with 128 chars (to prepare for more clusters)
+			var chars = '';
+			for (var i = 0; i < 128; i++) {
+				chars += String.fromCharCode(FIRST_CHAR+i);
+			}
+			initVocab([chars], 1); // takes count threshold for characters
 			model = initModel();
+		}
+		
+		this.replaceSentences = function(sentences) {
+			data_sents = sentences
+			console.log(data_sents)
 		}
 		
 		this.saveModel = function() {
@@ -233,7 +245,7 @@ module.exports = Net;
 				} else {
 					var ix = R.maxi(probs.w);
 				}
-
+				
 				if (ix === 0) break; // END token predicted, break out
 				if (s.length > max_chars_gen) {
 					break;

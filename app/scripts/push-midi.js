@@ -1,9 +1,10 @@
 /**
  * @constructor
  */
-function PushMidi(socket) {
+function PushMidi(socket, $scope) {
 	
-	var midiAccess;
+	var midiAccess, pushOutput;
+	
 	if (navigator.requestMIDIAccess) {
 		navigator.requestMIDIAccess().then(function(access) {
 			midiAccess = access;
@@ -13,10 +14,7 @@ function PushMidi(socket) {
 		console.log('No Web MIDI support');
 	}
 	
-	init();
-	
 	function init() {
-		var pushOutput;
 		var iter = midiAccess.outputs.values();
 		for (var i = iter.next(); i && !i.done; i = iter.next()) {
 			if (i.value.name == 'Ableton Push User Port') {
@@ -32,7 +30,13 @@ function PushMidi(socket) {
 	function setPadLight(note) {
 		var color = Math.floor(Math.random()*128);
 		var noteOnMessage = [0x90, note, color];
-		pushOutput.send( noteOnMessage );  //omitting the timestamp means send immediately.
+		sendMessageToPush(noteOnMessage);
+	}
+	
+	function sendMessageToPush(message) {
+		if (pushOutput) {
+			pushOutput.send(message);
+		}
 	}
 	
 	/*function setStatusLine(index, string) {
@@ -55,17 +59,18 @@ function PushMidi(socket) {
 			//note off
 		} else if (event.data[0] == 0xb0) {
 			//control change
-			if (event.data[1] == 1) {
-				changeParam(0, event.data[2]);
-			}
+			changeParam(event.data[1], event.data[2]);
 		}
 	}
 	
-	function changeParam(param, value) {
-		var request = new XMLHttpRequest();
-		'changeParam'
-		request.open('GET', 'changeParam?param='+param+'&value='+value, true);
-		request.send();
+	function changeParam(index, value) {
+		if (index == 1) {
+			$scope.changeFadeLength(3.0*value/128);
+		}
+	}
+	
+	function changeServerParam(param, value) {
+		socket.emit('changeParam', {param:param, value:value});
 	}
 	
 	function sendMiddleC( midiAccess, portID ) {

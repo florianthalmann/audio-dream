@@ -11,7 +11,7 @@
 			
 			var currentInputSource, currentOutputDevice, recorder, recordingTimeout;
 			var player = new AudioPlayer(audioContext, $scope, socket);
-			var pushMidi = new PushMidi(socket);
+			var pushMidi = new PushMidi(socket, $scope);
 			var analyser = audioContext.createAnalyser();
 			analyser.fftSize = 32;
 			var fftData = new Uint8Array(analyser.frequencyBinCount);
@@ -40,7 +40,10 @@
 						currentInputSource.disconnect();
 					}
 					currentInputSource = audioContext.createMediaStreamSource(audioStream);
-					currentInputSource.connect(audioContext.destination)
+					var dryGain = audioContext.createGain();
+					//dryGain.connect(audioContext.destination);
+					dryGain.gain.value = 0.5;
+					currentInputSource.connect(dryGain);
 					currentInputSource.connect(analyser);
 				})
 				.catch(function(error) {
@@ -64,9 +67,9 @@
 					previousAmps.unshift(currentAmp);
 					previousAmps.pop();
 					var sortedAmps = previousAmps.slice().sort();
-					console.log(previousAmps, sortedAmps)
+					//console.log(previousAmps, sortedAmps)
 					//amp going down
-					if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
+					/*if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
 						console.log("play")
 						player.play();
 					//amp going up
@@ -76,7 +79,7 @@
 							console.log("stop")
 							player.stop();
 						}
-					}
+					}*/
 					setTimeout(function() {
 						keepAnalyzing();
 					}, 1000);
@@ -88,6 +91,10 @@
 			}
 			
 			///////// PLAYING AND RECORDING ////////
+			
+			$scope.clearMemory = function() {
+				socket.emit('clearMemory');
+			}
 			
 			$scope.startPlaying = function() {
 				player.play();

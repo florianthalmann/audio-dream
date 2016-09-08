@@ -46,7 +46,14 @@ module.exports = Audio;
 		if (!isNaN(fadeLength)) {
 			FADE_LENGTH = fadeLength;
 		}
-		return fragments.map(function(f){return getWavOfFragment(f);});
+		var wavs = fragments.map(function(f){return getWavOfFragment(f);});
+		/*for (var i = wavs.length-1; i >= 0; i--) {
+			//console.log(fragments[i]["vector"].length);
+			if (!wavs[i]) {
+				wavs.splice(i, 1);
+			}
+		}*/
+		return wavs;
 	}
 	
 	var fragmentsToWav = function(fragments, fadeLength) {
@@ -82,10 +89,12 @@ module.exports = Audio;
 	}
 	
 	function getWavOfFragment(fragment) {
-		var filename = fragment["file"];
-		var fromSecond = fragment["time"];
-		var toSecond = fromSecond+fragment["duration"];
-		return getSampleFragment(filename, fromSecond, toSecond);
+		if (fragment) {
+			var filename = fragment["file"];
+			var fromSecond = fragment["time"];
+			var toSecond = fromSecond+fragment["duration"];
+			return getSampleFragment(filename, fromSecond, toSecond);
+		}
 	}
 	
 	function getSampleFragment(filename, fromSecond, toSecond) {

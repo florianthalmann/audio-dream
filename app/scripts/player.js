@@ -5,7 +5,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 	
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var FRAGMENT_LENGTH; //seconds
-	var FADE_LENGTH = 0.1; //seconds
+	var FADE_LENGTH = 0.5; //seconds
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
@@ -23,10 +23,14 @@ function AudioPlayer(audioContext, $scope, socket) {
 		});
 	}
 	
+	$scope.changeFadeLength = function(value) {
+		console.log(value)
+		FADE_LENGTH = value;
+	}
+	
 	socket.on('fragments', function (data) {
 		$scope.fragments = data.fragments;
 		$scope.$apply();
-		//socket.emit('my other event', { my: 'data' });
 	});
 	
 	socket.on('nextFragmentIndex', function (data) {
@@ -56,12 +60,14 @@ function AudioPlayer(audioContext, $scope, socket) {
 		currentSource.start(startTime);
 		setTimeout(function(){
 			$scope.currentFragments = [$scope.fragments[nextFragmentIndex]];
-			$scope.$apply();
+			setTimeout(function(){
+				$scope.$apply();
+			}, 100);
 		}, 1000*(delay+FADE_LENGTH));
 		console.log(currentSource.buffer.duration)
 		//create next sources and wait or end and reset
 		createNextSource(function() {
-			nextSourceTime = startTime+currentSource.buffer.duration-(2*FADE_LENGTH);
+			nextSourceTime = startTime+(currentSource.buffer.duration/currentSource.playbackRate.value)-(2*FADE_LENGTH);
 			var wakeupTime = (nextSourceTime-audioContext.currentTime-SCHEDULE_AHEAD_TIME)*1000;
 			timeoutID = setTimeout(function() {
 				playLoop();
@@ -101,6 +107,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 		reverbGain.connect(reverbSend);
 		reverbGain.gain.value = 0.3;
 		source.connect(reverbGain);
+		//source.playbackRate.value = Math.pow(2, (Math.round(Math.random()*6)-4)/6);
 		source.onended = function() {
 			//disconnect all nodes
 			source.disconnect();
@@ -126,6 +133,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 				console.log('audio from server is faulty');
 				return;
 			}
+			console.log(response);
 			audioContext.decodeAudioData(response, callback);
 		});
 	}

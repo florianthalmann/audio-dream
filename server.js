@@ -30,14 +30,16 @@
 	
 	var fragments = [];
 	var sentFragments = [];
-	var clustering, lstm;
+	var clustering = new kmeans.Clustering()
+	var lstm;
 	var isSampling = false;
 	
-	var playClusters = true;
+	var playClusters = false;
 	
 	var currentIndexSequence, currentWavSequence;
 	
 	init();
+	//test();
 	
 	function init() {
 		fs.readdir(audioFolder, function(err, files) {
@@ -48,6 +50,8 @@
 				async.eachSeries(files, loadIntoMemory, function(){ //loadIntoMemory analyzeAndLoad
 					clusterCurrentMemory();
 					emitFragments();
+					updateLstm();
+					startSampling();
 					console.log("memory loaded and clustered");
 					//testSamplingTheNet();
 				});
@@ -55,17 +59,42 @@
 		});
 	}
 	
+	function clearMemory() {
+		fs.readdir(audioFolder, function(err, files) {
+			files = files.filter(function(f){return f.indexOf('.wav') > 0;});
+			files.forEach(function(file){
+				fs.unlinkSync(audioFolder+file);
+			});
+			fragments = [];
+			emitFragments();
+			currentFileCount = 0;
+			console.log("memory cleared");
+		});
+	}
+	
+	/* ITERATIVE CLUSTERING IN BEGINNING
+	async.eachSeries(files, loadIntoMemoryAndCluster, function(){ //loadIntoMemory analyzeAndLoad
+		//testIterativeClustering();
+		clusterCurrentMemory();
+		emitFragments();
+		console.log("memory loaded and clustered");
+		//testSamplingTheNet();
+	});*/
+	
 	io.on('connection', function (s) {
 		socket = s;
 		emitFragments();
-		socket.on('changeParam', function (data) {
+		socket.on('changeParam', function(data) {
 			console.log("param "+data.param+" changed to "+data.value);
+		});
+		socket.on('clearMemory', function() {
+			clearMemory();
 		});
 	});
 	
 	function emitFragments() {
 		if (socket) {
-			var numClusters = clustering ? clustering.getClusters().length : 0;
+			var numClusters = clustering.getClusters() ? clustering.getClusters().length : 0;
 			socket.emit('fragments', { fragments:fragments, numClusters:numClusters });
 		}
 	}
@@ -87,7 +116,10 @@
 			postProcess(audioFolder+filename, function() {
 				response.send('wav saved at ' + filename);
 				analyzeAndLoad(filename, function() {
+					var forgottenFragments = forgetBeginning();
+					console.log("forgot "+ forgottenFragments + " fragments")
 					clusterCurrentMemory();
+					updateLstm();
 					emitFragments();
 				});
 			});
@@ -114,6 +146,25 @@
 		});
 	}
 	
+	function forgetBeginning() {
+		if (fragments.length > 50) {
+			forgottenFragments = fragments.length-50;
+			fragments = fragments.slice(forgottenFragments);
+			return forgottenFragments;
+		}
+		return 0;
+	}
+	
+	function loadIntoMemoryAndCluster(filename, callback) {
+		loadIntoMemory(filename, function() {
+			clusterCurrentMemory();
+			emitFragments();
+			setTimeout(function() {
+				callback();
+			}, 2000);
+		})
+	}
+	
 	function loadIntoMemory(filename, callback) {
 		console.log(filename)
 		audio.init(filename, audioFolder, function(){
@@ -124,7 +175,7 @@
 	
 	function clusterCurrentMemory() {
 		var vectors = fragments.map(function(f){return f["vector"];});
-		clustering = new kmeans.Clustering(vectors, numClusters);
+		clustering.cluster(vectors, numClusters);
 		//annotate fragments
 		var indexSequence = clustering.getIndexSequence();
 		for (var i = 0; i < fragments.length; i++) {
@@ -165,6 +216,7 @@
 	}
 	
 	function pushNextFragment(sink) {
+		console.log(currentIndexSequence[0], currentIndexSequence.length)
 		emitNextFragmentIndex();
 		var writer = new wav.Writer();
 		writer.pipe(sink);
@@ -173,9 +225,7 @@
 		writer.end();
 	}
 	
-	//analyzer.extractFeatures(audioFolder+filename, [features.onset, features.amp, features.centroid, features.mfcc, features.chroma]);
-	//test();
-	//testIterativeClustering();
+	////// tests
 	
 	function test() {
 		setupTest(filename, function() {
@@ -217,104 +267,20 @@
 		audio.init(filename, audioFolder, function(){
 			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength);
 			var vectors = fragments.map(function(f){return f["vector"];});
-			clustering = new kmeans.Clustering(vectors, numClusters);
+			clustering.cluster(vectors, numClusters);
 			callback();
 		});
 	}
 	
-	function testIterativeClustering() {
-		audio.init(filename, audioFolder, function(){
-			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength);
-			var vectors = fragments.map(function(f){return f["vector"];});
-			var groupSize = vectors.length / 10;
-			var clusterings = [];
-			for (var i = 0; i < 10; i++) {
-				var currentGroup = vectors.slice(0, (i+1)*groupSize);
-				clusterings.push(new kmeans.Clustering(currentGroup));
-				if (i > 0) {
-					var iM = getIntersectionMatrix(clusterings[i-1].getClusters(), clusterings[i].getClusters());
-					console.log(getClusterRelationships(iM, false));
-					
-					var dM = getDistanceMatrix(clusterings[i-1].getCentroids(), clusterings[i].getCentroids());
-					console.log(getClusterRelationships(dM, true));
-				}
-			}
-		});
-	}
-	
-	function getClusterRelationships(matrix, ascending) {
-		var elements = getOrderedElements(matrix, ascending);
-		var oldNew = [];
-		var i = 0;
-		while (Object.keys(oldNew).length < matrix.length) {
-			var currentPair = elements[i].coords;
-			var currentKeys = Object.keys(oldNew);
-			var currentValues = currentKeys.map(function(k){return oldNew[k];});
-			if (currentKeys.indexOf(currentPair[0].toString()) < 0 && currentValues.indexOf(currentPair[1]) < 0) {
-				oldNew[currentPair[0]] = currentPair[1];
-			}
-			i++;
-		}
-		return oldNew;
-	}
-	
-	function getOrderedElements(matrix, ascending) {
-		var orderedElements = [];
-		for (var i = 0; i < matrix.length; i++) {
-			for (var j = 0; j < matrix[i].length; j++) {
-				orderedElements.push({value:matrix[i][j], coords:[i,j]});
-			}
-		}
-		if (ascending) {
-			orderedElements.sort(function(a, b) {return a.value - b.value;});
+	function updateLstm() {
+		charSentences = [clustering.getCharSequence()]
+		if (!lstm) {
+			lstm = new net.Lstm(charSentences);
+			lstm.learn();
 		} else {
-			orderedElements.sort(function(a, b) {return b.value - a.value;});
+			lstm.replaceSentences(charSentences);
 		}
-		return orderedElements;
 	}
-	
-	function getIntersectionMatrix(a, b) {
-		var intersections = [];
-		for (var i = 0; i < a.length; i++) {
-			var currentCol = [];
-			for (var j = 0; j < b.length; j++) {
-				currentCol.push(getIntersection(a[i], b[j]).length);
-			}
-			intersections.push(currentCol);
-		}
-		return intersections;
-	}
-	
-	function getIntersection(a, b) {
-		var t;
-		if (b.length > a.length) t = b, b = a, a = t; // indexOf to loop over shorter
-		return a.filter(function (e) {
-			if (b.indexOf(e) !== -1) return true;
-		});
-	}
-	
-	function getDistanceMatrix(a, b) {
-		var distances = [];
-		for (var i = 0; i < a.length; i++) {
-			var currentCol = [];
-			for (var j = 0; j < b.length; j++) {
-				currentCol.push(getEuclideanDistance(a[i], b[j]));
-			}
-			distances.push(currentCol);
-		}
-		return distances;
-	}
-	
-	function getEuclideanDistance(a, b) {
-		var lim = Math.min(a.length, b.length);
-		var dist = 0;
-		for (var i = 0; i < lim; i++) {
-			dist += Math.pow(a[i]-b[i], 2);
-		}
-		return Math.sqrt(dist);
-	}
-	
-	
 	
 	function startSampling() {
 		isSampling = true;
@@ -324,15 +290,12 @@
 	function samplingLoop() {
 		if (isSampling) {
 			var sample = lstm.sample();
-			charsToWav(sample, function(wav){
-				audio.play(wav, true);
-				//TODO CALCULATE AS BELOW
-				var duration = wav.length/44100/2/2;
-				console.log(sample, duration);
-				setTimeout(function() {
-					samplingLoop();
-				}, (1000*duration)-100);
-			});
+			sample = clustering.toValidCharSequence(sample);
+			console.log(sample)
+			currentWavSequence = charsToWavList(sample);
+			setTimeout(function() {
+				samplingLoop();
+			}, 10000);
 		}
 	}
 	

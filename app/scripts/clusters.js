@@ -22,7 +22,7 @@
 					
 					var width = 600;
 					var height = 400;
-					var padding = 10;
+					var padding = 0;
 					
 					var xScale, yScale, sizeScale, colorScale;
 					
@@ -57,7 +57,7 @@
 						.transition()
 							.duration(100) // time of duration
 							.style("fill", "white")
-							.style("opacity", 0.7);
+							.style("opacity", 0.9);
 					}, true);
 					
 					// define render function
@@ -67,10 +67,10 @@
 						// set the height based on the calculations above
 						//var height = d3.select(iElement[0])[0][0].offsetHeight - 20; // 20 is for paddings and can be changed
 						
-						xScale = d3.scale.linear().domain([0, 40]).range([padding, width-padding]),
-						yScale = d3.scale.linear().domain([-3, 3]).range([height-padding, padding]),
-						sizeScale = d3.scale.linear().domain([-3, 3]).range([5, 20]),
-						colorScale = d3.scale.linear().domain([-3, 3]).rangeRound([45, 360]);
+						xScale = d3.scale.linear().domain([-3, 3]).range([padding, width-padding-100]),
+						yScale = d3.scale.linear().domain([-3, 3]).range([height-padding, padding+100]),
+						sizeScale = d3.scale.linear().domain([-3, 3]).range([5, 40]),
+						colorScale = d3.scale.linear().domain([-3, 3]).rangeRound([0, 360]);
 						
 						var circles = svg.selectAll("circle").data(data);
 						
@@ -101,22 +101,22 @@
 					
 					
 					function getXValue(d, i) {
-						return xScale(d.clusterIndex);
+						return xScale(d.vector[7]);//d.clusterIndex); d.vector[3]);
 					}
 					
 					function getYValue(d, i) {
-						return yScale(d.vector[0]);
+						return yScale(d.vector[1]);
 					}
 					
 					function getR(d) {
-						return sizeScale(d.vector[1]);
+						return sizeScale(d.vector[2]);
 					}
 					
 					function getHsl(d) {
 						/*if (scope.playing.indexOf(d["@id"]) >= 0) {
 							return "black";
 						}*/
-						return "hsl(" + colorScale(d.vector[2]) + ", 80%, 50%)";
+						return "hsl(" + colorScale(d.vector[4]) + ", 80%, 50%)";
 					}
 					
 					function getRgb(d) {
