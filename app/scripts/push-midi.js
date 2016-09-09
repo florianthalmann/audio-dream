@@ -67,12 +67,21 @@ function PushMidi(socket, $scope) {
 		}
 		//console.log(str, event.data);
 		
-		if (event.data[0] == 0x90) {
-			//note on
-		} else if (event.data[0] == 0x80) {
-			//note off
-		} else if (event.data[0] == 0xb0) {
-			//control change
+		if (36 <= event.data[1] && event.data[1] <= 99) {
+			var index = event.data[1]-36;
+			var amplitude = 1.0/128*event.data[2];
+			if (event.data[0] == 0x90) { //note on
+				$scope.startSample(index, amplitude);
+			} else if (event.data[0] == 0x80) { //note off
+				$scope.stopSample(index);
+			} else if (event.data[0] == 0xa0) { //after touch
+				$scope.bendEnvelope(index, amplitude);
+			}
+		}
+		if (event.data[0] == 0xe0) { //pitch bend
+			var bend = (event.data[2] * 128) + event.data[1];
+			$scope.bendPitch((1.0*bend/6144)-1);
+		} else if (event.data[0] == 0xb0) { //control change
 			changeParam(event.data[1], event.data[2]);
 		}
 	}

@@ -14,6 +14,7 @@
 			
 			var isRecording, isPlaying;
 			
+			var aiConsolePadding = new Array(20);
 			var aiConsoleLines = [];
 			
 			socket.on('aiOutput', function (data) {
@@ -25,7 +26,7 @@
 				while (aiConsoleLines.length > 5) {
 					aiConsoleLines.shift();
 				}
-				$scope.aiConsole = aiConsoleLines.join('\n');
+				$scope.aiConsole = aiConsolePadding.join('\n').concat(aiConsoleLines.join('\n'));
 				$scope.$apply();
 			}
 			
@@ -204,6 +205,7 @@
 			var currentInputSource, currentOutputDevice, recorder, recordingTimeout;
 			var player = new AudioPlayer(audioContext, $scope, socket);
 			var pushMidi = new PushMidi(socket, $scope);
+			var sampler = new Sampler(audioContext, player.getMainGain(), $scope);
 			
 			var analyser = audioContext.createAnalyser();
 			analyser.fftSize = 32;

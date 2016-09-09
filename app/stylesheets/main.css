@@ -21,7 +21,7 @@ h2 { font-size: 120%; font-weight: 400; }
 
 h3 { font-size: 120%; font-weight: 350; }
 
-text {white-space: pre-line; font-size: 70%; }
+p {white-space: pre-line; font-size: 70%; text-align: right; }
 
 button, input, select {
 	-moz-border-radius:12px;

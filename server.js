@@ -54,7 +54,7 @@
 					forgetBeginning();
 					clusterCurrentMemory();
 					emitFragments();
-					updateLstm();
+					//updateLstm();
 					self.emitInfo("memory loaded and clustered");
 					//testSamplingTheNet();
 				});

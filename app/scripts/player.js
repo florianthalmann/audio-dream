@@ -26,6 +26,10 @@ function AudioPlayer(audioContext, $scope, socket) {
 		});
 	}
 	
+	this.getMainGain = function() {
+		return mainGain;
+	}
+	
 	$scope.changeFadeLength = function(value) {
 		FADE_LENGTH = value;
 		socket.emit('changeFadeLength', {value:value});

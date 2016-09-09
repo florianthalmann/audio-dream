@@ -8,6 +8,7 @@
 	<script src="scripts/player.js"></script>
 	<script src="scripts/clusters.js"></script>
 	<script src="scripts/push-midi.js"></script>
+	<script src="scripts/sampler.js"></script>
 	<script src="scripts/controllers/maincontroller.js"></script>
 	<script src="scripts/services/d3.js" charset="utf-8"></script>
 	<script src="bower_components/socket.io-client/socket.io.js"></script>
@@ -23,7 +24,7 @@
 		<button ng-click="clearMemory()">Clear Memory</button-->
 		<div id="container" class="svg-container">
 			<cluster-bubbles data="fragments" playing="currentFragments">
-				<text width="1000" height="500" ng-model="aiConsole">{{aiConsole}}</text>
+				<p width="1000" height="500" ng-model="aiConsole">{{aiConsole}}</p>
 			</cluster-bubbles>
 		</div>
 	</div>
