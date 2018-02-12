@@ -1,7 +1,7 @@
 /**
  * @constructor
  */
-function Sampler(audioContext, mainGain, $scope) {
+function Sampler(audioContext, gains, $scope) {
 	
 	var samplerGain, reverbSend;
 	var samples = [];
@@ -11,13 +11,20 @@ function Sampler(audioContext, mainGain, $scope) {
 	
 	function init() {
 		samplerGain = audioContext.createGain();
-		samplerGain.connect(mainGain);
-		for (var i = 0; i < 64; i++) {
-			loadSample('samples/'+i+'.wav', i);
+		for (var i = 0; i < gains.length; i++) {
+			samplerGain.connect(gains[i]);
 		}
+		request('/getSampleList', 'json', function(err, response) {
+			console.log(response);
+			for (var i = 0; i < 64; i++) {
+				if (response[i]) {
+					loadSample('samples/'+response[i], i);
+				}
+			}
+		});
 	}
 	
-	$scope.setGain = function(gain) {
+	$scope.setSamplerGain = function(gain) {
 		samplerGain.gain.value = gain;
 	}
 	
@@ -66,7 +73,10 @@ function Sampler(audioContext, mainGain, $scope) {
 		};
 	
 		this.stop = function() {
-			source.stop();
+			var now = audioContext.currentTime;
+			envelopeGain.gain.setValueAtTime(envelopeGain.gain.value, now);
+			envelopeGain.gain.linearRampToValueAtTime(0, now+0.01);
+			source.stop(now+0.02);
 		}
 	
 		//bend should be between -1 and 1
@@ -75,7 +85,9 @@ function Sampler(audioContext, mainGain, $scope) {
 		}
 	
 		this.bendEnvelope = function(amplitude) {
-			envelopeGain.gain.value = amplitude+0.0001;
+			if (amplitude > 0) {
+				envelopeGain.gain.value = amplitude;
+			}
 		}
 	}
 	

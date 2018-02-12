@@ -49,13 +49,13 @@
 						var circles = svg.selectAll("circle");
 						circles//.filter(function(d) { return toDeselect.indexOf(d) >= 0 })
 						.transition()
-							.duration(100)
+							.duration(30)
 							.style("fill", getHsl)
 							.style("opacity", 0.2);
 						
 						circles.filter(function(d) { return toSelect.indexOf(d) >= 0 })
 						.transition()
-							.duration(100) // time of duration
+							.duration(30) // time of duration
 							.style("fill", "white")
 							.style("opacity", 0.9);
 					}, true);
@@ -83,12 +83,12 @@
 							.attr("cx", getXValue)
 							.attr("cy", getYValue)
 							.transition()
-								.duration(100) // time of duration
+								.duration(30) // time of duration
 								.attr("r", getR); // width based on scale
 						
 						circles
 							.transition()
-								.duration(100) // time of duration
+								.duration(30) // time of duration
 								.style("fill", getHsl)
 								.style("opacity", 0.2)
 								.attr("r", getR) // width based on scale
@@ -101,15 +101,15 @@
 					
 					
 					function getXValue(d, i) {
-						return xScale(d.vector[7]);//d.clusterIndex); d.vector[3]);
+						return xScale(d.vector[0]);//d.clusterIndex); d.vector[3]);
 					}
 					
 					function getYValue(d, i) {
-						return yScale(d.vector[1]);
+						return yScale(d.vector[d.vector.length-2]);
 					}
 					
 					function getR(d) {
-						return sizeScale(d.vector[2]);
+						return sizeScale(d.vector[d.vector.length-1]);
 					}
 					
 					function getHsl(d) {

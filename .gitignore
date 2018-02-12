@@ -26,3 +26,5 @@ out
 recordings
 features
 app/samples
+app/samples-dm
+*testaudio/

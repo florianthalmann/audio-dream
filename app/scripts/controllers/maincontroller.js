@@ -14,7 +14,7 @@
 			
 			var isRecording, isPlaying;
 			
-			var aiConsolePadding = new Array(20);
+			var aiConsolePadding = new Array(12);
 			var aiConsoleLines = [];
 			
 			socket.on('aiOutput', function (data) {
@@ -23,11 +23,13 @@
 			
 			function addAiConsoleLine(text) {
 				aiConsoleLines.push(text);
-				while (aiConsoleLines.length > 5) {
+				while (aiConsoleLines.length > 10) {
 					aiConsoleLines.shift();
 				}
 				$scope.aiConsole = aiConsolePadding.join('\n').concat(aiConsoleLines.join('\n'));
-				$scope.$apply();
+				setTimeout(function() {
+					$scope.$apply();
+				}, 10);
 			}
 			
 			///////// AUDIO IO ////////
@@ -54,10 +56,19 @@
 					}
 					currentInputSource = audioContext.createMediaStreamSource(audioStream);
 					var dryGain = audioContext.createGain();
-					//dryGain.connect(audioContext.destination);
-					dryGain.gain.value = 0.5;
-					currentInputSource.connect(dryGain);
-					currentInputSource.connect(analyser);
+					dryGain.connect(audioContext.destination);
+					dryGain.gain.value = 1;
+					currentRecordedNode = audioContext.createGain();
+					var splitter = audioContext.createChannelSplitter();
+					var merger = audioContext.createChannelMerger();
+					//currentRecordedNode.connect(dryGain);
+					currentRecordedNode.connect(analyser);
+					currentInputSource.connect(splitter);
+					splitter.connect(merger, 0, 0);
+					splitter.connect(merger, 0, 1);
+					merger.connect(currentRecordedNode);
+					sampler = new Sampler(audioContext, [player.getMainGain(), currentRecordedNode], $scope);
+					new PushMidi(socket, $scope);
 				})
 				.catch(function(error) {
 					console.log(error);
@@ -82,14 +93,14 @@
 					var sortedAmps = previousAmps.slice().sort();
 					//console.log(previousAmps, sortedAmps)
 					//amp going down
-					if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
-						console.log(addAiConsoleLine("Auto playing"))
+					if (!player.isPlaying() && JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
+						addAiConsoleLine("Auto playing")
 						player.play();
 					//amp going up
 					} else {
 						sortedAmps.reverse();
-						if (JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
-							console.log(addAiConsoleLine("Auto stopped"))
+						if (player.isPlaying() && JSON.stringify(previousAmps)==JSON.stringify(sortedAmps)) {
+							addAiConsoleLine("Auto stopped")
 							player.stop();
 						}
 					}
@@ -146,10 +157,12 @@
 			}
 			
 			$scope.startPlaying = function() {
+				aiConsoleLines.push("started playing");
 				player.play();
 			}
 			
 			$scope.stopPlaying = function() {
+				aiConsoleLines.push("stopped playing");
 				player.stop();
 			}
 			
@@ -164,15 +177,16 @@
 			}
 			
 			$scope.startRecording = function() {
-				if (currentInputSource && !recorder) {
-					recorder = new Recorder(currentInputSource);
+				aiConsoleLines.push("started listening");
+				if (currentRecordedNode && !recorder) {
+					recorder = new Recorder(currentRecordedNode);
 					recorder.record();
 					keepRecording();
 				}
 			}
 			
 			function keepRecording() {
-				if (currentInputSource && recorder) {
+				if (currentRecordedNode && recorder) {
 					recordingTimeout = setTimeout(function() {
 						recorder.exportWAV(postBlob);
 						keepRecording();
@@ -182,6 +196,7 @@
 			}
 			
 			$scope.stopRecording = function() {
+				aiConsoleLines.push("stopped listening");
 				if (recorder) {
 					clearTimeout(recordingTimeout);
 					recorder.stop();
@@ -202,10 +217,9 @@
 			}
 			
 			///////// INIT ///////
-			var currentInputSource, currentOutputDevice, recorder, recordingTimeout;
+			var currentInputSource, currentRecordedNode, currentOutputDevice, recorder, recordingTimeout;
 			var player = new AudioPlayer(audioContext, $scope, socket);
-			var pushMidi = new PushMidi(socket, $scope);
-			var sampler = new Sampler(audioContext, player.getMainGain(), $scope);
+			var sampler;
 			
 			var analyser = audioContext.createAnalyser();
 			analyser.fftSize = 32;

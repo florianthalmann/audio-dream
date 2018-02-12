@@ -13,7 +13,7 @@ module.exports = Analyzer;
 	var currentPath;
 	
 	var FEATURES = {beats:'vamp:qm-vamp-plugins:qm-barbeattracker:beats', onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody', pitch:'vamp:vamp-aubio:aubiopitch:frequency'};
-	var FEATURE_SELECTION = [FEATURES.beats, FEATURES.amp, FEATURES.pitch, FEATURES.mfcc, FEATURES.chroma];
+	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.amp, FEATURES.pitch, FEATURES.mfcc, FEATURES.chroma];
 	var SHORT_FEATURE_SELECTION = FEATURE_SELECTION.map(function(f){return f.slice(f.lastIndexOf(':')+1);});
 	
 	var extractFeatures = function(path, callback) {
@@ -65,14 +65,16 @@ module.exports = Analyzer;
 				fragments.splice(i, 1);
 			}
 		}
-		//standardize the vectors
-		var vectors = fragments.map(function(f){return f["vector"];});
-		var transposed = math.transpose(vectors);
-		var means = transposed.map(function(v){return math.mean(v);});
-		var stds = transposed.map(function(v){return math.std(v);});
-		//transposed = transposed.map(function(v,i){return v.map(function(e){return (e-means[i])/stds[i];})});
-		for (var i = fragments.length-1; i >= 0; i--) {
-			fragments[i]["vector"] = fragments[i]["vector"].map(function(e,j){return (e-means[j])/stds[j];});
+		if (fragments.length > 1) {
+			//standardize the vectors
+			var vectors = fragments.map(function(f){return f["vector"];});
+			var transposed = math.transpose(vectors);
+			var means = transposed.map(function(v){return math.mean(v);});
+			var stds = transposed.map(function(v){return math.std(v);});
+			//transposed = transposed.map(function(v,i){return v.map(function(e){return (e-means[i])/stds[i];})});
+			for (var i = fragments.length-1; i >= 0; i--) {
+				fragments[i]["vector"] = fragments[i]["vector"].map(function(e,j){ if (stds[j] != 0) { return (e-means[j])/stds[j] } return e-means[j];});
+			}
 		}
 		return fragments;
 	}

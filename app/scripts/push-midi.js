@@ -10,11 +10,12 @@ function PushMidi(socket, $scope) {
 		71:{name:"mem", call:$scope.changeMaxNumFragments, init:200, min:10, max:1000, incr:10},
 		72:{name:"clu", call:$scope.changeClusterProportion, init:0.1, min:0.05, max:0.5, incr:0.05},
 		73:{name:"lis", call:$scope.changeListeningThreshold, init:0.5, min:0, max:1, incr:0.1},
-		74:{name:"rec", call:$scope.changeRecordingLength, init:5, min:1, max:10, incr:1},
+		74:{name:"rec", call:$scope.changeRecordingLength, init:10, min:2, max:10, incr:1},
 		//74:{name:"seg", call:$scope.changeSegmentLength, init:5, min:1, max:10, incr:1},
 		75:{name:"fad", call:$scope.changeFadeLength, init:0.5, min:0.1, max:2.5, incr:0.1},
-		76:{name:"eff", call:$scope.changeEffectsAmount, init:0.3, min:0, max:2, incr:0.01},
-		77:{name:"gai", call:$scope.changeGain, init:1, min:0.1, max:2, incr:0.01}
+		76:{name:"eff", call:$scope.changeEffectsAmount, init:0.3, min:0.01, max:2, incr:0.01},
+		77:{name:"gai", call:$scope.changeGain, init:1, min:0.1, max:2, incr:0.01},
+		78:{name:"pug", call:$scope.setSamplerGain, init:0.3, min:0.1, max:2, incr:0.01}
 	};
 	var toggleMaps = {
 		20:{name:"rec", call:$scope.toggleRecording},
@@ -57,6 +58,7 @@ function PushMidi(socket, $scope) {
 		}
 		for (var num in toggleMaps) {
 			setToggleStatus(num-20, toggleMaps[num].name);
+			setToggleLight(num, false);
 		}
 	}
 	

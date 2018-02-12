@@ -128,12 +128,14 @@ function AudioPlayer(audioContext, $scope, socket) {
 		dryGain.connect(panner);
 		dryGain.gain.value = 0.8;
 		source.connect(dryGain);
-		panner.setPosition(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
+		panner.setPosition(EFFECTS_AMOUNT*Math.random()*8-4, EFFECTS_AMOUNT*Math.random()*8-4, EFFECTS_AMOUNT*Math.random()*8-4);
 		var reverbGain = audioContext.createGain();
 		reverbGain.connect(reverbSend);
-		reverbGain.gain.value = 0.3;
+		reverbGain.gain.value = EFFECTS_AMOUNT;
 		source.connect(reverbGain);
-		//source.playbackRate.value = Math.pow(2, (Math.round(Math.random()*6)-4)/6);
+		if (EFFECTS_AMOUNT > 0.3) {
+			source.playbackRate.value = (EFFECTS_AMOUNT-0.3)*Math.pow(2, (Math.round(Math.random()*6)-4)/6);
+		}
 		source.onended = function() {
 			//disconnect all nodes
 			source.disconnect();

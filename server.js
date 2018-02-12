@@ -31,7 +31,7 @@
 	var FADE_LENGTH = 0.5;
 	
 	var fragments = [];
-	var clustering = new kmeans.Clustering(this);
+	var clustering = new kmeans.Clustering(self);
 	var lstm;
 	
 	var MODES = {NET:"NET", SEQUENCE:"SEQUENCE", CLUSTERS:"CLUSTERS"};
@@ -54,7 +54,7 @@
 					forgetBeginning();
 					clusterCurrentMemory();
 					emitFragments();
-					//updateLstm();
+					updateLstm();
 					self.emitInfo("memory loaded and clustered");
 					//testSamplingTheNet();
 				});
@@ -72,7 +72,7 @@
 			emitFragments();
 			currentFileCount = 0;
 			currentIndexSequence = null;
-			clustering = new kmeans.Clustering(this);
+			clustering = new kmeans.Clustering(self);
 			self.emitInfo("forgot absolutely everything");
 		});
 	}
@@ -118,6 +118,14 @@
 			socket.emit('nextFragmentIndex', { nextFragmentIndex:nextFragmentIndex });
 		}
 	}
+	
+	app.get('/getSampleList', function(request, response, next) {
+		fs.readdir('app/samples/', function(err, files) {
+			files = files.filter(function(f){return f.indexOf('.wav') > 0 || f.indexOf('.Wav') > 0 || f.indexOf('.aif') > 0;})
+				.sort(function(f,g){return parseInt(f.slice(0,-4)) - parseInt(g.slice(0,-4));});
+			response.send(JSON.stringify(files));
+		});
+	});
 	
 	app.post('/postAudioBlob', function (request, response) {
 		var filename = currentFileCount.toString()+'.wav';
