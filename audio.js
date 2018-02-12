@@ -3,33 +3,33 @@ module.exports = Audio;
 
 (function(global) {
 	"use strict";
-	
+
 	var fs = require('fs');
 	var stream = require('stream');
 	var wav = require('wav');
 	var Speaker = require('speaker');
-	
+
 	var wavMemory = {};
 	var speaker, speakerOut;
-	
+
 	var FADE_LENGTH = 0.01;
-	
+
 	var init = function(filename, audioFolder, callback) {
 		resetSpeakerOut();
 		getWavIntoMemory(filename, audioFolder, callback);
 	}
-	
+
 	var end = function() {
 		speakerOut.push(null);
 	}
-	
+
 	var play = function(wav, thereWillBeMore) {
 		speakerOut.push(wav);
 		if (!thereWillBeMore) {
 			end();
 		}
 	}
-	
+
 	function resetSpeakerOut() {
 		if (!speaker) {
 			speaker = new Speaker({
@@ -41,7 +41,7 @@ module.exports = Audio;
 		speakerOut = new stream.PassThrough();
 		speakerOut.pipe(speaker);
 	}
-	
+
 	var fragmentsToWavList = function(fragments, fadeLength) {
 		if (!isNaN(fadeLength)) {
 			FADE_LENGTH = fadeLength;
@@ -55,14 +55,18 @@ module.exports = Audio;
 		}*/
 		return wavs;
 	}
-	
+
+	var getFormat = function(fragment) {
+		return wavMemory[fragment['file']]['format'];
+	}
+
 	var fragmentToWav = function(fragment, fadeLength) {
 		if (!isNaN(fadeLength)) {
 			FADE_LENGTH = fadeLength;
 		}
 		return getWavOfFragment(fragment);
 	}
-	
+
 	var fragmentsToWav = function(fragments, fadeLength) {
 		if (!isNaN(fadeLength)) {
 			FADE_LENGTH = fadeLength;
@@ -84,7 +88,7 @@ module.exports = Audio;
 		//concat everything and return
 		return Buffer.concat(parts);
 	}
-	
+
 	function getBufferSum(b1, b2) {
 		var sum = Buffer.from(b1);
 		for (var s = 0; s < b1.length; s+=2) {
@@ -94,7 +98,7 @@ module.exports = Audio;
 		}
 		return sum;
 	}
-	
+
 	function getWavOfFragment(fragment) {
 		if (fragment) {
 			var filename = fragment["file"];
@@ -103,7 +107,7 @@ module.exports = Audio;
 			return getSampleFragment(filename, fromSecond, toSecond);
 		}
 	}
-	
+
 	function getSampleFragment(filename, fromSecond, toSecond) {
 		fromSecond -= FADE_LENGTH;
 		if (fromSecond < 0) {
@@ -111,14 +115,15 @@ module.exports = Audio;
 		}
 		toSecond += FADE_LENGTH;
 		var format = wavMemory[filename]['format'];
-		var factor = format.byteRate;
+		var factor = format.sampleRate*format.channels*(format.bitDepth/8);
 		var fromSample = Math.round(fromSecond*factor);
 		var toSample = Math.round(toSecond*factor);
 		var segment = Buffer.from(wavMemory[filename]['data'].slice(fromSample, toSample));
-		fadeSegment(segment, FADE_LENGTH*factor, format.bitDepth/8); //FADING NOW DONE IN FRONTEND
+		segment[format] = wavMemory[filename]['format'];
+		//fadeSegment(segment, FADE_LENGTH*factor, format.bitDepth/8); //FADING NOW DONE IN FRONTEND
 		return segment;
 	}
-	
+
 	function fadeSegment(segment, numSamples, byteDepth) {
 		var fadeLength = Math.min(numSamples, segment.length);
 		for (var i = 0; i < fadeLength; i+=byteDepth) {
@@ -130,7 +135,7 @@ module.exports = Audio;
 			}
 		}
 	}
-	
+
 	function getWavIntoMemory(filename, audioFolder, callback) {
 		wavMemory[filename] = {};
 		var file = fs.createReadStream(audioFolder+filename);
@@ -151,12 +156,13 @@ module.exports = Audio;
 		});
 		file.pipe(reader);
 	}
-	
+
 	global.init = init;
 	global.play = play;
+	global.getFormat = getFormat;
 	global.fragmentToWav = fragmentToWav;
 	global.fragmentsToWav = fragmentsToWav;
 	global.fragmentsToWavList = fragmentsToWavList;
 	global.getWavIntoMemory = getWavIntoMemory;
-	
+
 })(Audio);

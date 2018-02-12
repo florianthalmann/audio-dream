@@ -3,19 +3,19 @@ module.exports = Analyzer;
 
 (function(global) {
 	"use strict";
-	
+
 	var fs = require('fs');
 	var async = require('async');
 	var math = require('mathjs');
 	var util = require('./util.js');
-	
+
 	var featureFolder = 'features/';
 	var currentPath;
-	
+
 	var FEATURES = {beats:'vamp:qm-vamp-plugins:qm-barbeattracker:beats', onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody', pitch:'vamp:vamp-aubio:aubiopitch:frequency'};
 	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.amp, FEATURES.pitch, FEATURES.mfcc, FEATURES.chroma];
 	var SHORT_FEATURE_SELECTION = FEATURE_SELECTION.map(function(f){return f.slice(f.lastIndexOf(':')+1);});
-	
+
 	var extractFeatures = function(path, callback) {
 		currentPath = path;
 		async.mapSeries(FEATURE_SELECTION, extractFeature, function(){
@@ -23,20 +23,24 @@ module.exports = Analyzer;
 			callback();
 		});
 	}
-	
+
 	function extractFeature(feature, callback) {
 		//console.log("extracting "+feature)
 		var destination = featureFolder + currentPath.replace('.wav', '_').slice(currentPath.lastIndexOf('/')+1)
 			+ feature.replace(/:/g, '_') + '.json';
-		util.execute('sonic-annotator -d ' + feature + ' ' + currentPath + ' -w jams', function(success) {
-			if (success) {
-				util.execute('mv '+currentPath.replace('.wav', '')+'.json '+destination, function(success) {
-					callback();
-				});
-			}
-		});
+		if (!fs.existsSync(destination)) {
+			util.execute('sonic-annotator -f -d ' + feature + ' "' + currentPath + '" -w jams', function(success) {
+				if (success) {
+					util.execute('mv "'+currentPath.replace('.wav', '')+'.json" "'+destination+'"', function(success) {
+						callback();
+					});
+				}
+			});
+		} else {
+			callback();
+		}
 	}
-	
+
 	var getFragmentsAndSummarizedFeatures = function(path, fragmentLength) {
 		var files = fs.readdirSync(featureFolder);
 		var name = path.replace('.wav', '');
@@ -78,7 +82,7 @@ module.exports = Analyzer;
 		}
 		return fragments;
 	}
-	
+
 	function createFragments(featurepath, fragmentLength) {
 		var json = readJsonSync(featurepath);
 		var events = [];
@@ -90,7 +94,7 @@ module.exports = Analyzer;
 		}
 		return events;
 	}
-	
+
 	function getEventsWithDuration(path) {
 		var json = readJsonSync(path);
 		var events = [];
@@ -106,11 +110,11 @@ module.exports = Analyzer;
 		}
 		return events;
 	}
-	
+
 	function createEvent(file, time, duration) {
 		return {"file":file, "time":time, "duration":duration, "vector":[]};
 	}
-	
+
 	function addSummarizedFeature(path, segments) {
 		var json = readJsonSync(path);
 		var featureName = json["annotations"][0]["annotation_metadata"]["annotator"]["output_id"];
@@ -131,15 +135,15 @@ module.exports = Analyzer;
 			//segments[i]["vector"] = segments[i]["vector"].concat(Array.isArray(means) ? means.concat(vars) : [means, vars]);
 		}
 	}
-	
+
 	function getMean(values) {
 		return mapValueOrArray(math.mean, values);
 	}
-	
+
 	function getVariance(values) {
 		return mapValueOrArray(math.var, values);
 	}
-	
+
 	function mapValueOrArray(func, values) {
 		if (values.length > 0) {
 			if (Array.isArray(values[0])) {
@@ -148,12 +152,12 @@ module.exports = Analyzer;
 			return func.apply(this, values);
 		}
 	}
-	
+
 	function readJsonSync(path) {
 		return JSON.parse(fs.readFileSync(path, 'utf8'));
 	}
-	
+
 	global.extractFeatures = extractFeatures;
 	global.getFragmentsAndSummarizedFeatures = getFragmentsAndSummarizedFeatures;
-	
+
 })(Analyzer);

@@ -2,20 +2,20 @@
  * @constructor
  */
 function AudioPlayer(audioContext, $scope, socket) {
-	
+
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var MIN_DELAY_BETWEEN_SOURCES = 0.01; //seconds
 	var FADE_LENGTH = 2; //seconds
-	var EFFECTS_AMOUNT = 3; //1-10
+	var EFFECTS_AMOUNT = 0; //1-10
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
 	$scope.fragments = [];
 	$scope.currentFragments = [];
 	var nextFragmentIndex;
-	
+
 	init();
-	
+
 	function init() {
 		mainGain = audioContext.createGain();
 		mainGain.connect(audioContext.destination);
@@ -25,39 +25,39 @@ function AudioPlayer(audioContext, $scope, socket) {
 			reverbSend.buffer = buffer;
 		});
 	}
-	
+
 	this.getMainGain = function() {
 		return mainGain;
 	}
-	
+
 	$scope.changeFadeLength = function(value) {
 		FADE_LENGTH = value;
 		socket.emit('changeFadeLength', {value:value});
 	}
-	
+
 	$scope.changeEffectsAmount = function(value) {
 		EFFECTS_AMOUNT = value;
 	}
-	
+
 	$scope.changeGain = function(value) {
 		if (mainGain) {
 			mainGain.gain.value = value;
 		}
 	}
-	
+
 	socket.on('fragments', function (data) {
 		$scope.fragments = data.fragments;
 		$scope.$apply();
 	});
-	
+
 	socket.on('nextFragmentIndex', function (data) {
 		nextFragmentIndex = data.nextFragmentIndex;
 	});
-	
+
 	this.isPlaying = function() {
 		return isPlaying;
 	}
-	
+
 	this.play = function() {
 		if (!isPlaying) {
 			isPlaying = true;
@@ -66,13 +66,13 @@ function AudioPlayer(audioContext, $scope, socket) {
 			});
 		}
 	}
-	
+
 	this.stop = function() {
 		isPlaying = false;
 		//stops slowly by letting current source finish
 		window.clearTimeout(timeoutID);
 	}
-	
+
 	function playLoop() {
 		currentSource = nextSource;
 		//calculate delay and schedule
@@ -100,7 +100,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 			}, wakeupTime);
 		});
 	}
-	
+
 	function getCurrentDelay() {
 		if (!nextSourceTime) {
 			return SCHEDULE_AHEAD_TIME;
@@ -108,7 +108,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 			return Math.max(0, nextSourceTime-audioContext.currentTime);
 		}
 	}
-	
+
 	/*function fadeBuffer(buffer, durationInSamples) {
 		var fadeSamples = buffer.sampleRate*FADE_LENGTH;
 		for (var i = 0; i < buffer.numberOfChannels; i++) {
@@ -119,7 +119,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 			}
 		}
 	}*/
-	
+
 	function createNextSource(callback) {
 		var source = audioContext.createBufferSource();
 		var panner = audioContext.createPanner();
@@ -153,12 +153,12 @@ function AudioPlayer(audioContext, $scope, socket) {
 			callback();
 		});
 	}
-	
+
 	function requestAudio(callback) {
 		var query = "http://localhost:8088/getNextFragment";
 		loadAudio(query, callback);
 	}
-	
+
 	function loadAudio(path, callback) {
 		request(path, 'arraybuffer', function(err, response){
 			if (err) {
@@ -172,7 +172,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 			}
 		});
 	}
-	
+
 	function request(path, responseType, callback) {
 		var request = new XMLHttpRequest();
 		request.open('GET', path, true);
@@ -181,5 +181,5 @@ function AudioPlayer(audioContext, $scope, socket) {
 		request.error = function(err) { callback(err); }
 		request.send();
 	}
-	
+
 }
