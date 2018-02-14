@@ -5,8 +5,8 @@ function AudioPlayer(audioContext, $scope, socket) {
 
 	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
 	var MIN_DELAY_BETWEEN_SOURCES = 0.01; //seconds
-	var FADE_LENGTH = 2; //seconds
-	var EFFECTS_AMOUNT = 0; //1-10
+	var FADE_LENGTH = 0.1//2; //seconds
+	var EFFECTS_AMOUNT = 0//0.5; //1-10
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;

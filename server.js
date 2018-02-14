@@ -15,6 +15,7 @@
 	var analyzer = require('./analyzer.js');
 	var net = require('./net.js');
 	var kmeans = require('./kmeans.js');
+	var MarkovChain = require('./lib/markov.js').MarkovChain;
 
 	var app = express();
 	app.use(express["static"](__dirname + '/app'));
@@ -26,18 +27,20 @@
 
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
-	var CLUSTER_PROPORTION = 0.1;
-	var fragmentLength;
+	var CLUSTER_PROPORTION = 0.05;
+	var fragmentLength = 0.03;
 	var FADE_LENGTH = 0.5;
 
 	var fragments = [];
 	var clustering = new kmeans.Clustering(self);
-	var lstm;
+	var brain;
+	var previousSample;
 
 	var MODES = {NET:"NET", SEQUENCE:"SEQUENCE", CLUSTERS:"CLUSTERS"};
 	var currentMode = MODES.NET;
 
-	var MAX_NUM_FRAGMENTS = 200;
+	var MAX_NUM_FRAGMENTS;// = 3000;
+	var MARKOV_ORDER = 4;
 
 	var currentIndexSequence;
 
@@ -54,7 +57,7 @@
 					forgetBeginning();
 					clusterCurrentMemory();
 					emitFragments();
-					updateLstm();
+					updateBrain();
 					self.emitInfo("memory loaded and clustered");
 					//testSamplingTheNet();
 				});
@@ -142,7 +145,7 @@
 						self.emitInfo("forgot "+ forgottenFragments + " fragments")
 					}
 					clusterCurrentMemory();
-					updateLstm();
+					updateBrain();
 					emitFragments();
 				});
 			});
@@ -189,9 +192,9 @@
 	}
 
 	function loadIntoMemory(filename, callback) {
-		console.log(filename)
 		audio.init(filename, audioFolder, function(){
 			fragments = fragments.concat(analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength));
+			console.log("num fragments", fragments.length)
 			callback();
 		});
 	}
@@ -209,8 +212,8 @@
 	app.get('/getNextFragment', function(request, response, next) {
 		//make new fragments if list empty or parameters changed
 		if (!currentIndexSequence || currentIndexSequence.length == 0) {
-			if (currentMode == MODES.NET && lstm) {
-				currentIndexSequence = getLstmSample();
+			if (currentMode == MODES.NET && brain) {
+				currentIndexSequence = getBrainSample();
 			} else if (currentMode == MODES.CLUSTERS) {
 				currentIndexSequence = clustering.getClusterSequence();
 			} else {
@@ -232,19 +235,28 @@
 		writer.end();
 	}
 
-	function updateLstm() {
+	function updateBrain() {
 		charSentences = [clustering.getCharSequence()]
-		if (!lstm) {
-			lstm = new net.Lstm(charSentences, self);
-			lstm.learn();
+		if (!brain) {
+			initMarkovChain();
 		} else {
-			lstm.replaceSentences(charSentences);
+			brain.replaceSentences(charSentences);
 		}
 	}
 
-	function getLstmSample() {
-		var sample = lstm.sample();
+	function initLstm() {
+		brain = new net.Lstm(charSentences, self);
+		brain.learn();
+	}
+
+	function initMarkovChain() {
+		brain = new MarkovChain(charSentences, MARKOV_ORDER);
+	}
+
+	function getBrainSample() {
+		var sample = brain.sample(previousSample);
 		sample = clustering.toValidCharSequence(sample);
+		previousSample = sample;
 		self.emitInfo("sampled neural network: "+sample);
 		return charsToIndexList(sample);
 	}

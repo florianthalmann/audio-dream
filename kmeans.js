@@ -3,21 +3,25 @@ module.exports = Kmeans;
 
 (function(global) {
 	"use strict";
-	
+
 	var clusterfck = require('clusterfck');
-	
+
 	var FIRST_CHAR = 32;
 	var MEASURE_CONTINUITY_WITH_INTERSECTION = true;
-	
+	var CLUSTER_LIMIT;// = 128;
+
 	var Clustering = function(server) {
-		
+
 		var clusters, centroids;
-		
+
 		//clusterFactor is the proportional amount of clusters per fragment, e.g. 0.1 is 1 cluster per 10 fragments
 		this.cluster = function(vectors, clusterFactor) {
 			var previousClusters = clusters;
 			var previousCentroids = centroids;
-			var clusterCount = Math.min(128, Math.round(vectors.length*clusterFactor));
+			var clusterCount = Math.round(vectors.length*clusterFactor);
+			if (CLUSTER_LIMIT) {
+				clusterCount = Math.min(128, clusterCount);
+			}
 			//clusters with the indices of all feature vectors
 			var kmeans = new clusterfck.Kmeans();
 			clusters = kmeans.cluster(vectors, clusterCount);
@@ -28,7 +32,7 @@ module.exports = Kmeans;
 				permuteClustersForContinuity(previousClusters, previousCentroids);
 			}
 		}
-		
+
 		function permuteClustersForContinuity(previousClusters, previousCentroids) {
 			var clusterPermutation;
 			if (MEASURE_CONTINUITY_WITH_INTERSECTION) {
@@ -51,11 +55,11 @@ module.exports = Kmeans;
 			clusters = newClusters;
 			centroids = newCentroids;
 		}
-		
+
 		this.length = function() {
 			return clusters.length;
 		}
-		
+
 		//returns a list with the fragment index for each element of the clusters in order
 		this.getClusterSequence = function() {
 			var sequence = [];
@@ -68,7 +72,7 @@ module.exports = Kmeans;
 			}
 			return sequence;
 		}
-		
+
 		//returns a list with the cluster index for each vector in the original list
 		this.getIndexSequence = function() {
 			var clusterIndices = [];
@@ -81,12 +85,12 @@ module.exports = Kmeans;
 			}
 			return clusterIndices;
 		}
-		
+
 		//returns a string with the cluster char for each vector in the original list
 		this.getCharSequence = function() {
 			return this.getIndexSequence().map(function(i){return indexToChar(i);}).join('');
 		}
-		
+
 		this.toValidCharSequence = function(sequence) {
 			for (var i = sequence.length-1; i >= 0; i--) {
 				if (charToIndex(sequence[i]) >= clusters.length) {
@@ -95,19 +99,19 @@ module.exports = Kmeans;
 			}
 			return sequence;
 		}
-		
+
 		this.getClusters = function() {
 			return clusters;
 		}
-		
+
 		this.getCentroids = function() {
 			return centroids;
 		}
-		
+
 		this.getClusterElements = function(index) {
 			return clusters[index];
 		}
-		
+
 		//returns the fragment index of a random element of a cluster
 		this.getRandomClusterElement = function(char) {
 			var clusterElements = clusters[charToIndex(char)];
@@ -116,15 +120,15 @@ module.exports = Kmeans;
 			}
 			return '';
 		}
-		
+
 		function indexToChar(index) {
 			return String.fromCharCode(FIRST_CHAR+index);
 		}
-		
+
 		function charToIndex(char) {
 			return char.charCodeAt(0)-FIRST_CHAR;
 		}
-		
+
 		function getClusterPermutation(matrix, ascendingSimilarity) {
 			var elements = getOrderedElements(matrix, ascendingSimilarity);
 			var oldNew = [];
@@ -140,7 +144,7 @@ module.exports = Kmeans;
 			}
 			return oldNew;
 		}
-	
+
 		function getOrderedElements(matrix, ascending) {
 			var orderedElements = [];
 			for (var i = 0; i < matrix.length; i++) {
@@ -155,7 +159,7 @@ module.exports = Kmeans;
 			}
 			return orderedElements;
 		}
-	
+
 		function getIntersectionMatrix(a, b) {
 			var intersections = [];
 			for (var i = 0; i < a.length; i++) {
@@ -167,7 +171,7 @@ module.exports = Kmeans;
 			}
 			return intersections;
 		}
-	
+
 		function getIntersection(a, b) {
 			if (a && b) {
 				var t;
@@ -178,7 +182,7 @@ module.exports = Kmeans;
 			}
 			return [];
 		}
-	
+
 		function getDistanceMatrix(a, b) {
 			var distances = [];
 			for (var i = 0; i < a.length; i++) {
@@ -190,7 +194,7 @@ module.exports = Kmeans;
 			}
 			return distances;
 		}
-	
+
 		function getEuclideanDistance(a, b) {
 			var lim = Math.min(a.length, b.length);
 			var dist = 0;
@@ -199,9 +203,9 @@ module.exports = Kmeans;
 			}
 			return Math.sqrt(dist);
 		}
-		
+
 	}
-	
+
 	global.Clustering = Clustering;
-	
+
 })(Kmeans);

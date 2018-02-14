@@ -3,15 +3,15 @@ module.exports = Net;
 
 (function(global) {
 	"use strict";
-	
+
 	var R = require('./lib/recurrentjs/recurrent.js');
 	var Rvis = require('./lib/recurrentjs/vis.js');
-	
+
 	var Lstm = function (data_sents, server) {
-		
+
 		var INTERVAL = 10;
 		var FIRST_CHAR = 32;
-		
+
 		// model parameters
 		var generator = 'lstm'; // can be 'rnn' or 'lstm'
 		var hidden_sizes = [20,20]; // list of sizes of hidden layers
@@ -21,7 +21,7 @@ module.exports = Net;
 		var regc = 0.000001; // L2 regularization strength
 		var learning_rate = 0.01; // learning rate
 		var clipval = 5.0; // clip gradients at this value
-		
+
 		// prediction params
 		var sample_softmax_temperature = 1.0; // how peaky model predictions should be
 		var max_chars_gen = 20; // max length of generated sentences
@@ -35,29 +35,30 @@ module.exports = Net;
 		var solver = new R.Solver(); // should be class because it needs memory for step caches
 		var pplGraph = new Rvis.Graph();
 		var model = {};
-		
+		var currentIndex = 0;
+
 		var iid = null;
 		this.learn = function() {
 			reinit();
 			if(iid !== null) { clearInterval(iid); }
-			iid = setInterval(tick, INTERVAL); 
+			iid = setInterval(tick, INTERVAL);
 		}
-		
+
 		this.stop = function() {
 			if(iid !== null) { clearInterval(iid); }
 			iid = null;
 		}
-		
+
 		this.resume = function() {
 			if(iid === null) {
-				iid = setInterval(tick, INTERVAL); 
+				iid = setInterval(tick, INTERVAL);
 			}
 		}
-		
+
 		this.sample = function() {
 			return predictSentence(model, true, sample_softmax_temperature);
 		}
-		
+
 		var initVocab = function(sents, count_threshold) {
 			// go over all characters and keep track of all unique ones seen
 			var txt = sents.join(''); // concat all
@@ -96,7 +97,7 @@ module.exports = Net;
 			epoch_size = sents.length;
 			console.log('found ' + vocab.length + ' distinct characters: ' + vocab.join(''));
 		}
-	
+
 		var utilAddToModel = function(modelto, modelfrom) {
 			for (var k in modelfrom) {
 				if (modelfrom.hasOwnProperty(k)) {
@@ -105,7 +106,7 @@ module.exports = Net;
 				}
 			}
 		}
-	
+
 		var initModel = function() {
 			// letter embedding vectors
 			var model = {};
@@ -120,7 +121,7 @@ module.exports = Net;
 			}
 			return model;
 		}
-		
+
 		function reinit() {
 			// note: reinit writes global vars
 			solver = new R.Solver(); // reinit solver
@@ -135,12 +136,12 @@ module.exports = Net;
 			initVocab([chars], 1); // takes count threshold for characters
 			model = initModel();
 		}
-		
+
 		this.replaceSentences = function(sentences) {
 			data_sents = sentences
 			console.log(data_sents)
 		}
-		
+
 		this.saveModel = function() {
 			var out = {};
 			out['hidden_sizes'] = hidden_sizes;
@@ -169,7 +170,7 @@ module.exports = Net;
 			out['vocab'] = vocab;
 			$("#tio").val(JSON.stringify(out));
 		}
-	
+
 		this.loadModel = function(j) {
 			hidden_sizes = j.hidden_sizes;
 			generator = j.generator;
@@ -200,7 +201,7 @@ module.exports = Net;
 			ppl_list = [];
 			tick_iter = 0;
 		}
-	
+
 		var forwardIndex = function(G, model, ix, prev) {
 			var x = G.rowPluck(model['Wil'], ix);
 			// forward prop the sequence learner
@@ -211,7 +212,7 @@ module.exports = Net;
 			}
 			return out_struct;
 		}
-	
+
 		function predictSentence(model, samplei, temperature) {
 			if (typeof samplei === 'undefined') {
 				samplei = false;
@@ -224,7 +225,7 @@ module.exports = Net;
 			var prev = {};
 			while (true) {
 				// RNN tick
-				var ix = s.length === 0 ? 0 : letterToIndex[s[s.length - 1]];
+				var ix = s.length === 0 ? currentIndex : letterToIndex[s[s.length - 1]];
 				var lh = forwardIndex(G, model, ix, prev);
 				prev = lh;
 				// sample predicted letter
@@ -244,17 +245,18 @@ module.exports = Net;
 				} else {
 					var ix = R.maxi(probs.w);
 				}
-				
+
 				if (ix === 0) break; // END token predicted, break out
 				if (s.length > max_chars_gen) {
 					break;
 				} // something is wrong
 				var letter = indexToLetter[ix];
+				currentIndex = ix;
 				s += letter;
 			}
 			return s;
 		}
-	
+
 		var costfun = function(model, sent) {
 			// takes a model and a sentence and
 			// calculates the loss. Also returns the Graph
@@ -286,7 +288,7 @@ module.exports = Net;
 				'cost': cost
 			};
 		}
-	
+
 		function median(values) {
 			values.sort(function(a, b) {
 				return a - b;
@@ -295,10 +297,10 @@ module.exports = Net;
 			if (values.length % 2) return values[half];
 			else return (values[half - 1] + values[half]) / 2.0;
 		}
-	
+
 		var ppl_list = [];
 		var tick_iter = 0;
-	
+
 		var tick = function() {
 			// sample sentence fromd data
 			var sentix = R.randi(0, data_sents.length);
@@ -339,7 +341,7 @@ module.exports = Net;
 				}
 			}
 		}
-	
+
 		var gradCheck = function() {
 			var model = initModel();
 			var sent = '^test sentence$';
@@ -367,7 +369,7 @@ module.exports = Net;
 			}
 		}
 	}
-	
+
 	global.Lstm = Lstm;
-	
+
 })(Net);
