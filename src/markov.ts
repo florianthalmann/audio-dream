@@ -22,7 +22,7 @@ export class MarkovChain {
     }
     _.forOwn(this.model, (probs, history) => {
       let sum = _.sum(_.values(probs));
-      _.mapValues(probs, v => v/sum);
+      _.forEach(probs, (v, char) => probs[char] = v/sum);
     });
     console.log("lm learned, size is", _.keys(this.model).length)
   }

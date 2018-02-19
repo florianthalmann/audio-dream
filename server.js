@@ -27,9 +27,9 @@
 
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
-	var CLUSTER_PROPORTION = 0.05;
-	var fragmentLength = 0.03;
-	var FADE_LENGTH = 0.5;
+	var CLUSTER_PROPORTION = 0.01;
+	var fragmentLength //= 0.3;
+	var FADE_LENGTH = 0.1;
 
 	var fragments = [];
 	var clustering = new kmeans.Clustering(self);
@@ -40,7 +40,7 @@
 	var currentMode = MODES.NET;
 
 	var MAX_NUM_FRAGMENTS;// = 3000;
-	var MARKOV_ORDER = 4;
+	var MARKOV_ORDER = 2;
 
 	var currentIndexSequence;
 

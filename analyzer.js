@@ -59,9 +59,11 @@ module.exports = Analyzer;
 			featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0 && f.indexOf('beats') < 0;});
 			fragments = createFragments(featureFiles[0], fragmentLength);
 		}
+		console.log(fragments.length)
 		for (var i = 0; i < featureFiles.length; i++) {
 			addSummarizedFeature(featureFiles[i], fragments);
 		}
+		console.log(fragments.length)
 		//remove all fragments that contain undefined features
 		for (var i = fragments.length-1; i >= 0; i--) {
 			//console.log(fragments[i]["vector"].length);
@@ -122,8 +124,15 @@ module.exports = Analyzer;
 		for (var i = 0; i < segments.length; i++) {
 			var currentOnset = segments[i]["time"];
 			var currentOffset = currentOnset+segments[i]["duration"];
-			var currentData = data.filter(function(d){return currentOnset<=d["time"] && d["time"]<currentOffset;});
-			var currentValues = currentData.map(function(d){return d["value"]});
+			var currentData = data.filter(d => currentOnset<=d["time"] && d["time"]<currentOffset);
+			if (currentData.length == 0) {
+				currentData = data.reverse().find(d => currentOnset > d["time"]);
+				if (currentData == null) {
+					currentData = data.find(d => currentOnset < d["time"]);
+				}
+				currentData = [currentData];
+			}
+			var currentValues = currentData.map(d => d["value"]);
 			var means = getMean(currentValues);
 			//console.log(currentValues.length)
 			var vars = getVariance(currentValues);
