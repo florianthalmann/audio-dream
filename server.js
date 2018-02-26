@@ -27,8 +27,8 @@
 
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
-	var CLUSTER_PROPORTION = 0.01;
-	var fragmentLength //= 0.3;
+	var CLUSTER_PROPORTION = 0.005;
+	var fragmentLength = 0.03;
 	var FADE_LENGTH = 0.1;
 
 	var fragments = [];
@@ -40,12 +40,12 @@
 	var currentMode = MODES.NET;
 
 	var MAX_NUM_FRAGMENTS;// = 3000;
-	var MARKOV_ORDER = 2;
+	var MARKOV_ORDER = 4;
 
 	var currentIndexSequence;
 
-	init();
-	//test();
+	//init();
+	test();
 
 	function init() {
 		fs.readdir(audioFolder, function(err, files) {
@@ -262,12 +262,12 @@
 	}
 
 	function charsToIndexList(chars) {
-		return Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+		return chars.split('').map(c => clustering.getRandomClusterElement(c));
 		//return audio.fragmentsToWavList(currentIndexSequence.map(function(i){return fragments[i];}), FADE_LENGTH);
 	}
 
-	/*function charsToWav(chars) {
-		return Array.prototype.map.call(chars, function(c){return clustering.getRandomClusterElement(c);});
+	function charsToWav(chars) {
+		return indicesToWav(charsToIndexList(chars));
 		//return indicesToWav(currentIndexSequence);
 	}
 
@@ -277,8 +277,9 @@
 	}
 
 	function indicesToWav(fragmentIndices) {
-		return audio.fragmentsToWav(fragmentIndices.map(function(i){return fragments[i];}), FADE_LENGTH);
-	}*/
+		return fragmentIndices.map(i => audio.fragmentToWav(fragments[i]));
+		//return audio.fragmentsToWav(fragmentIndices.map(i => fragments[i]), FADE_LENGTH);
+	}
 
 
 
@@ -286,8 +287,9 @@
 	////// TESTS
 
 	function test() {
-		setupTest('ligeti.wav', function() {
-			testOriginalSequence();
+		setupTest("Buddy Holly - It Doesn't Matter Anymore.wav", function() {
+			//testOriginalSequence();
+			testClusters();
 		});
 	}
 
@@ -296,9 +298,9 @@
 		var i = 0;
 		async.eachSeries(clusters, function(cluster, callback) {
 			var wav = indicesToWav(cluster);
-			var duration = wav.length/44100/2/2;
+			var duration = wav.join().length/44100/2/2;
 			self.emitInfo("playing cluster " + i + " with size " + cluster.length + " and duration " + duration);
-			audio.play(wav, true);
+			wav.forEach(w => audio.play(w, true));
 			i++;
 			setTimeout(callback, (1000*duration)-50);
 		}, function(err) {
@@ -310,13 +312,16 @@
 	function testOriginalSequence() {
 		var chars = clustering.getCharSequence();
 		console.log(chars)
-		audio.play(charsToWav(chars));
+		//console.log(charsToWav(chars))
+		charsToWav(chars).forEach((w,i) => audio.play(w, i < chars.length-1));
+		//audio.play(charsToWav(chars));
 	}
 
 	function setupTest(filename, callback) {
 		audio.init(filename, audioFolder, function(){
 			fragments = analyzer.getFragmentsAndSummarizedFeatures(filename, fragmentLength);
-			var vectors = fragments.map(function(f){return f["vector"];});
+			//console.log(fragments.map(f => [f.time, f.duration, f.vector[1]]).slice(0,30))
+			var vectors = fragments.map(f => f["vector"]);
 			clustering.cluster(vectors, CLUSTER_PROPORTION);
 			callback();
 		});

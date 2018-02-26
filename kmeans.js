@@ -25,7 +25,7 @@ module.exports = Kmeans;
 			//clusters with the indices of all feature vectors
 			var kmeans = new clusterfck.Kmeans();
 			clusters = kmeans.cluster(vectors, clusterCount);
-			clusters = clusters.map(function(c){return c.map(function(v){return vectors.indexOf(v);})});
+			clusters = clusters.map(c => c.map(v => vectors.indexOf(v)));
 			centroids = kmeans.centroids;
 			server.emitInfo("clustered " + vectors.length + " vectors into " + clusters.length + " clusters");
 			if (previousClusters && previousCentroids) {

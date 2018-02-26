@@ -13,7 +13,7 @@ module.exports = Analyzer;
 	var currentPath;
 
 	var FEATURES = {beats:'vamp:qm-vamp-plugins:qm-barbeattracker:beats', onset:'vamp:qm-vamp-plugins:qm-onsetdetector:onsets', amp:'vamp:vamp-example-plugins:amplitudefollower:amplitude', chroma:'vamp:qm-vamp-plugins:qm-chromagram:chromagram', centroid:'vamp:vamp-example-plugins:spectralcentroid:logcentroid', mfcc:'vamp:qm-vamp-plugins:qm-mfcc:coefficients', melody:'vamp:mtg-melodia:melodia:melody', pitch:'vamp:vamp-aubio:aubiopitch:frequency'};
-	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.amp, FEATURES.pitch, FEATURES.mfcc, FEATURES.chroma];
+	var FEATURE_SELECTION = [FEATURES.onset, FEATURES.mfcc]//[FEATURES.onset, FEATURES.amp, FEATURES.pitch, FEATURES.mfcc, FEATURES.chroma];
 	var SHORT_FEATURE_SELECTION = FEATURE_SELECTION.map(function(f){return f.slice(f.lastIndexOf(':')+1);});
 
 	var extractFeatures = function(path, callback) {
@@ -44,8 +44,8 @@ module.exports = Analyzer;
 	var getFragmentsAndSummarizedFeatures = function(path, fragmentLength) {
 		var files = fs.readdirSync(featureFolder);
 		var name = path.replace('.wav', '');
-		files = files.filter(function(f){return f.indexOf(name+'_') == 0 && SHORT_FEATURE_SELECTION.indexOf(f.slice(f.lastIndexOf('_')+1, f.lastIndexOf('.'))) >= 0;});
-		files = files.map(function(f){return featureFolder+f;});
+		files = files.filter(f => f.indexOf(name+'_') == 0 && SHORT_FEATURE_SELECTION.indexOf(f.slice(f.lastIndexOf('_')+1, f.lastIndexOf('.'))) >= 0);
+		files = files.map(f => featureFolder+f);
 		if (files.length < FEATURE_SELECTION.length) {
 			//incomplete feature files, return no fragments
 			return [];
@@ -59,11 +59,9 @@ module.exports = Analyzer;
 			featureFiles = files.filter(function(f){return f.indexOf('onsets') < 0 && f.indexOf('beats') < 0;});
 			fragments = createFragments(featureFiles[0], fragmentLength);
 		}
-		console.log(fragments.length)
 		for (var i = 0; i < featureFiles.length; i++) {
 			addSummarizedFeature(featureFiles[i], fragments);
 		}
-		console.log(fragments.length)
 		//remove all fragments that contain undefined features
 		for (var i = fragments.length-1; i >= 0; i--) {
 			//console.log(fragments[i]["vector"].length);
@@ -126,9 +124,9 @@ module.exports = Analyzer;
 			var currentOffset = currentOnset+segments[i]["duration"];
 			var currentData = data.filter(d => currentOnset<=d["time"] && d["time"]<currentOffset);
 			if (currentData.length == 0) {
-				currentData = data.reverse().find(d => currentOnset > d["time"]);
+				currentData = data.find(d => currentOnset < d["time"]);
 				if (currentData == null) {
-					currentData = data.find(d => currentOnset < d["time"]);
+					currentData = data[data.length-1];
 				}
 				currentData = [currentData];
 			}

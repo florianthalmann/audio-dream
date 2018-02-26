@@ -89,6 +89,7 @@ function AudioPlayer(audioContext, $scope, socket) {
 		//create next sources and wait or end and reset
 		createNextSource(function() {
 			var currentSourceDuration = currentSource.buffer.duration/currentSource.playbackRate.value;
+			console.log(currentSourceDuration)
 			//console.log(currentSourceDuration, (2*FADE_LENGTH)+MIN_DELAY_BETWEEN_SOURCES)
 			//if (currentSourceDuration > (2*FADE_LENGTH)+MIN_DELAY_BETWEEN_SOURCES) {
 				currentSourceDuration -= 2*FADE_LENGTH;

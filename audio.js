@@ -33,7 +33,7 @@ module.exports = Audio;
 	function resetSpeakerOut() {
 		if (!speaker) {
 			speaker = new Speaker({
-				channels: 2,          // 2 channels
+				channels: 1,          // 2 channels
 				bitDepth: 16,         // 16-bit samples
 				sampleRate: 44100     // 44,100 Hz sample rate
 			});
@@ -159,6 +159,7 @@ module.exports = Audio;
 
 	global.init = init;
 	global.play = play;
+	global.end = end;
 	global.getFormat = getFormat;
 	global.fragmentToWav = fragmentToWav;
 	global.fragmentsToWav = fragmentsToWav;
