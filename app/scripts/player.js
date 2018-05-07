@@ -3,10 +3,10 @@
  */
 function AudioPlayer(audioContext, $scope, socket) {
 
-	var SCHEDULE_AHEAD_TIME = 0.1; //seconds
+	var SCHEDULE_AHEAD_TIME = 1; //seconds
 	var MIN_DELAY_BETWEEN_SOURCES = 0.01; //seconds
-	var FADE_LENGTH = 0.1//2; //seconds
-	var EFFECTS_AMOUNT = 0//0.5; //1-10
+	var FADE_LENGTH = 0.8//2; //seconds
+	var EFFECTS_AMOUNT = 0.02//0.5; //1-10
 	var reverbSend;
 	var currentSource, nextSource, nextSourceTime;
 	var isPlaying, timeoutID;
@@ -89,12 +89,13 @@ function AudioPlayer(audioContext, $scope, socket) {
 		//create next sources and wait or end and reset
 		createNextSource(function() {
 			var currentSourceDuration = currentSource.buffer.duration/currentSource.playbackRate.value;
-			console.log(currentSourceDuration)
+			//console.log(currentSourceDuration)
 			//console.log(currentSourceDuration, (2*FADE_LENGTH)+MIN_DELAY_BETWEEN_SOURCES)
 			//if (currentSourceDuration > (2*FADE_LENGTH)+MIN_DELAY_BETWEEN_SOURCES) {
 				currentSourceDuration -= 2*FADE_LENGTH;
 			//}
 			nextSourceTime = startTime+currentSourceDuration;
+			//console.log(nextSourceTime)
 			var wakeupTime = (nextSourceTime-audioContext.currentTime-SCHEDULE_AHEAD_TIME)*1000;
 			timeoutID = setTimeout(function() {
 				playLoop();

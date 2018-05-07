@@ -15,7 +15,7 @@
 </head>
 <body ng-app="audioDream">
 	<div ng-controller="MainController">
-		<h1>Audio Deep Dream</h1>
+		<h1>Audio Dream</h1>
 		<select ng-init="selectedAudioInputDevice = audioDevices[0]" ng-model="selectedAudioInputDevice" ng-options="d.label for d in audioInputDevices" ng-change="audioInputDeviceSelected()"></select>
 		<button ng-click="startRecording()">Start Recording</button>
 		<button ng-click="stopRecording()">Stop Recording</button>

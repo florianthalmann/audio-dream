@@ -6,7 +6,7 @@ module.exports = Kmeans;
 
 	var clusterfck = require('clusterfck');
 
-	var FIRST_CHAR = 32;
+	var FIRST_CHAR = 45;
 	var MEASURE_CONTINUITY_WITH_INTERSECTION = true;
 	var CLUSTER_LIMIT;// = 128;
 
@@ -132,13 +132,15 @@ module.exports = Kmeans;
 		function getClusterPermutation(matrix, ascendingSimilarity) {
 			var elements = getOrderedElements(matrix, ascendingSimilarity);
 			var oldNew = [];
+			var pairsAdded = 0;
 			var i = 0;
-			while (Object.keys(oldNew).length < matrix.length && i < matrix.length) {
+			while (pairsAdded < matrix.length && i < elements.length) {
 				var currentPair = elements[i].coords;
 				var currentKeys = Object.keys(oldNew);
 				var currentValues = currentKeys.map(function(k){return oldNew[k];});
-				if (currentKeys.indexOf(currentPair[0].toString()) < 0 && currentValues.indexOf(currentPair[1]) < 0) {
+				if (oldNew[currentPair[0]] == null && oldNew.indexOf(currentPair[1]) < 0) {
 					oldNew[currentPair[0]] = currentPair[1];
+					pairsAdded++;
 				}
 				i++;
 			}

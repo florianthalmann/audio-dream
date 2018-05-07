@@ -7,6 +7,7 @@
 	var express = require('express');
 	var bodyParser = require('body-parser');
 	var async = require('async');
+	var _ = require('lodash');
 	var fs = require('fs');
 	var wav = require('wav');
 	var math = require('mathjs');
@@ -27,9 +28,9 @@
 
 	var audioFolder = 'recordings/';
 	var currentFileCount = 0;
-	var CLUSTER_PROPORTION = 0.005;
-	var fragmentLength = 0.03;
-	var FADE_LENGTH = 0.1;
+	var CLUSTER_PROPORTION = 0.03;
+	var fragmentLength //= 0.1;
+	var FADE_LENGTH = 0.01;
 
 	var fragments = [];
 	var clustering = new kmeans.Clustering(self);
@@ -44,15 +45,15 @@
 
 	var currentIndexSequence;
 
-	//init();
-	test();
+	init();
+	//test();
 
 	function init() {
 		fs.readdir(audioFolder, function(err, files) {
 			files = files.filter(function(f){return f.indexOf('.wav') > 0;})
 				.sort(function(f,g){return parseInt(f.slice(0,-4)) - parseInt(g.slice(0,-4));});
 			if (files.length > 0) {
-				currentFileCount = Math.max.apply(Math, files.map(function(f){return parseInt(f.slice(0,-4))}));
+				currentFileCount = files.length;
 				async.eachSeries(files, analyzeAndLoad, function(){ //loadIntoMemory analyzeAndLoad
 					forgetBeginning();
 					clusterCurrentMemory();
@@ -60,6 +61,7 @@
 					updateBrain();
 					self.emitInfo("memory loaded and clustered");
 					//testSamplingTheNet();
+					//test();
 				});
 			}
 		});
@@ -227,7 +229,8 @@
 
 	function pushNextFragment(sink) {
 		emitNextFragmentIndex();
-		var nextFragment = fragments[currentIndexSequence.shift()];
+		let nextIndex = currentIndexSequence.shift();
+		var nextFragment = fragments[nextIndex];
 		var format = audio.getFormat(nextFragment);
 		var writer = new wav.Writer(format);
 		writer.pipe(sink);
@@ -258,7 +261,8 @@
 		sample = clustering.toValidCharSequence(sample);
 		previousSample = sample;
 		self.emitInfo("sampled neural network: "+sample);
-		return charsToIndexList(sample);
+		let indexList = charsToIndexList(sample);
+		return indexList;
 	}
 
 	function charsToIndexList(chars) {
@@ -287,10 +291,10 @@
 	////// TESTS
 
 	function test() {
-		setupTest("Buddy Holly - It Doesn't Matter Anymore.wav", function() {
-			//testOriginalSequence();
-			testClusters();
-		});
+		//setupTest("Buddy Holly - It Doesn't Matter Anymore.wav", function() {
+			testOriginalSequence();
+			//testClusters();
+		//});
 	}
 
 	function testClusters() {
