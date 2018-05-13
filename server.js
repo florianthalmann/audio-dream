@@ -40,7 +40,9 @@
 	var MODES = {NET:"NET", SEQUENCE:"SEQUENCE", CLUSTERS:"CLUSTERS"};
 	var currentMode = MODES.NET;
 
-	var MAX_NUM_FRAGMENTS;// = 3000;
+	var MAX_NUM_FRAGMENTS = 5000;
+	var FORGET = {BEGINNING:"BEGINNING", RANDOM:"RANDOM", CLUSTERS:"CLUSTERS"};
+	var forgetting = FORGET.RANDOM;
 	var MARKOV_ORDER = 4;
 
 	var currentIndexSequence;
@@ -55,7 +57,10 @@
 			if (files.length > 0) {
 				currentFileCount = files.length;
 				async.eachSeries(files, analyzeAndLoad, function(){ //loadIntoMemory analyzeAndLoad
-					forgetBeginning();
+					var numForgotten = forget();
+					if (numForgotten) {
+						self.emitInfo("forgot "+ numForgotten + " fragments")
+					}
 					clusterCurrentMemory();
 					emitFragments();
 					updateBrain();
@@ -142,7 +147,7 @@
 			postProcess(audioFolder+filename, function() {
 				response.send('wav saved at ' + filename);
 				analyzeAndLoad(filename, function() {
-					var forgottenFragments = forgetBeginning();
+					var forgottenFragments = forget();
 					if (forgottenFragments) {
 						self.emitInfo("forgot "+ forgottenFragments + " fragments")
 					}
@@ -167,6 +172,7 @@
 	}
 
 	function analyzeAndLoad(filename, callback) {
+		console.log("analyzing", filename)
 		analyzer.extractFeatures(audioFolder+filename, function(){
 			loadIntoMemory(filename, function() {
 				callback();
@@ -174,11 +180,15 @@
 		});
 	}
 
-	function forgetBeginning() {
+	function forget() {
 		if (fragments.length > MAX_NUM_FRAGMENTS) {
-			forgottenFragments = fragments.length-MAX_NUM_FRAGMENTS;
-			fragments = fragments.slice(forgottenFragments);
-			return forgottenFragments;
+			var forgotNumFragments = fragments.length-MAX_NUM_FRAGMENTS;
+			if (forgetting == FORGET.BEGINNING) {
+				fragments = fragments.slice(forgotNumFragments);
+			} else {
+				fragments = _.sampleSize(fragments, MAX_NUM_FRAGMENTS);
+			}
+			return forgotNumFragments;
 		}
 		return 0;
 	}
@@ -292,8 +302,8 @@
 
 	function test() {
 		//setupTest("Buddy Holly - It Doesn't Matter Anymore.wav", function() {
-			testOriginalSequence();
-			//testClusters();
+			//testOriginalSequence();
+			testClusters();
 		//});
 	}
 
@@ -319,6 +329,10 @@
 		//console.log(charsToWav(chars))
 		charsToWav(chars).forEach((w,i) => audio.play(w, i < chars.length-1));
 		//audio.play(charsToWav(chars));
+	}
+
+	function testSampling() {
+		let sequence = this.getBrainSample();
 	}
 
 	function setupTest(filename, callback) {
