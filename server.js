@@ -37,6 +37,8 @@
 	var brain;
 	var previousSample;
 
+	var LOAD = {AT_ONCE:"AT_ONCE", GRADUALLY:"GRADUALLY"};
+	var loading = LOAD.GRADUALLY;
 	var MODES = {NET:"NET", SEQUENCE:"SEQUENCE", CLUSTERS:"CLUSTERS"};
 	var currentMode = MODES.NET;
 
@@ -51,6 +53,14 @@
 	//test();
 
 	function init() {
+		if (loading == LOAD.GRADUALLY) {
+			loadGradually();
+		} else {
+			loadAtOnce();
+		}
+	}
+
+	function loadAtOnce() {
 		fs.readdir(audioFolder, function(err, files) {
 			files = files.filter(function(f){return f.indexOf('.wav') > 0;})
 				.sort(function(f,g){return parseInt(f.slice(0,-4)) - parseInt(g.slice(0,-4));});
@@ -68,6 +78,28 @@
 					//testSamplingTheNet();
 					//test();
 				});
+			}
+		});
+	}
+
+	function loadGradually() {
+		fs.readdir(audioFolder, function(err, files) {
+			files = files.filter(function(f){return f.indexOf('.wav') > 0;})
+				.sort(function(f,g){return parseInt(f.slice(0,-4)) - parseInt(g.slice(0,-4));});
+			if (files.length > 0) {
+				async.eachSeries(files, (filename, callback) => {
+					analyzeAndLoad(filename, () => {
+						var forgottenFragments = forget();
+						if (forgottenFragments) {
+							self.emitInfo("forgot "+ forgottenFragments + " fragments")
+						}
+						clusterCurrentMemory();
+						updateBrain();
+						emitFragments();
+						self.emitInfo(filename, "loaded and clustered");
+						setTimeout(callback, 10000); //one file every 10 secs
+					});
+				})
 			}
 		});
 	}
@@ -250,6 +282,7 @@
 
 	function updateBrain() {
 		charSentences = [clustering.getCharSequence()]
+		console.log(charSentences)
 		if (!brain) {
 			initMarkovChain();
 		} else {
