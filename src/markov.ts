@@ -1,7 +1,7 @@
 import * as _ from 'lodash';
 
 export class MarkovChain {
-  private model = {};
+  private model: Object = {};
 
   constructor(sentences: string[], private order = 4) {
     this.learn(sentences);
