@@ -40,8 +40,8 @@
 			if (navigator.mediaDevices) {
 				navigator.mediaDevices.enumerateDevices().then(function(devices) {
 					$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});
-					console.log($scope.audioInputDevices[2])
-					$scope.selectedAudioInputDevice = $scope.audioInputDevices[1];
+					console.log($scope.audioInputDevices)
+					$scope.selectedAudioInputDevice = $scope.audioInputDevices[2];
 					$scope.audioInputDeviceSelected();
 					$scope.$apply();
 				});

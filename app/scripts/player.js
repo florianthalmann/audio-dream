@@ -17,13 +17,10 @@ function AudioPlayer(Tone, $scope, socket) {
 	init();
 
 	function init() {
-		//mainGain = audioContext.createGain();
-		//mainGain.connect(audioContext.destination);
-		reverbSend = new Tone.Freeverb().toMaster();//audioContext.createConvolver();
-		//reverbSend.connect(mainGain);
-		/*loadAudio('impulse_rev.wav', function(buffer) {
-			reverbSend.buffer = buffer;
-		});*/
+		mainGain = Tone.context.createGain();
+		mainGain.connect(Tone.Master);
+		reverbSend = new Tone.Freeverb(0.95, 10000)
+		reverbSend.connect(mainGain);
 	}
 
 	this.getMainGain = function() {
@@ -163,9 +160,9 @@ function AudioPlayer(Tone, $scope, socket) {
 	}*/
 
 	async function createNextTonePlayer(callback) {
-		var reverb = new Tone.Volume(Tone.gainToDb(EFFECTS_AMOUNT*10)).connect(reverbSend);
+		var reverb = new Tone.Volume(Tone.gainToDb(2*EFFECTS_AMOUNT)).connect(reverbSend);
 		var panner = Tone.context.createPanner();
-		panner.setPosition(EFFECTS_AMOUNT*Math.random()*8-4, EFFECTS_AMOUNT*Math.random()*8-4, EFFECTS_AMOUNT*Math.random()*8-4);
+		panner.setPosition(EFFECTS_AMOUNT*Math.random()*20-10, EFFECTS_AMOUNT*Math.random()*20-10, EFFECTS_AMOUNT*Math.random()*20-10);
 		panner.connect(reverb);
 		panner.connect(Tone.Master);
 		//requestAudio((loadedBuffer, err) => {

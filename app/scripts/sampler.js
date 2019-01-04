@@ -15,7 +15,7 @@ function Sampler(audioContext, gains, $scope) {
 			samplerGain.connect(gains[i]);
 		}
 		request('/getSampleList', 'json', function(err, response) {
-			console.log(response);
+			//console.log(response);
 			for (var i = 0; i < 64; i++) {
 				if (response[i]) {
 					loadSample('samples/'+response[i], i);
