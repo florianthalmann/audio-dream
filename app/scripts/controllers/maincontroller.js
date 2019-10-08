@@ -41,13 +41,16 @@
 				navigator.mediaDevices.enumerateDevices().then(function(devices) {
 					$scope.audioInputDevices = devices.filter(function(d){return d.kind == "audioinput"});
 					console.log($scope.audioInputDevices)
-					$scope.selectedAudioInputDevice = $scope.audioInputDevices[2];
+					$scope.selectedAudioInputDevice = $scope.audioInputDevices.length > 2 ?
+						$scope.audioInputDevices[2] : $scope.audioInputDevices[0];
 					$scope.audioInputDeviceSelected();
 					$scope.$apply();
 				});
 			}
 
 			$scope.audioInputDeviceSelected = function() {
+				const selected = $scope.selectedAudioInputDevice;
+				const id = selected ? selected.deviceId : $scope.audioInputDevices[0];
 				var constraints = {
 					deviceId: { exact: [$scope.selectedAudioInputDevice.deviceId] },
 					echoCancellation: { exact: false }

@@ -29,12 +29,7 @@ function Sampler(audioContext, gains, $scope) {
 	}
 	
 	$scope.startSample = function(index, amplitude) {
-		if (!currentSamples[index]) {
-			currentSamples[index] = new Source(samples[index], amplitude, function() {
-				delete currentSamples[index];
-			});
-			currentSamples[index].start();
-		}
+		currentSamples[index].start();
 	}
 	
 	$scope.stopSample = function(index) {
@@ -56,38 +51,25 @@ function Sampler(audioContext, gains, $scope) {
 	}
 	
 	function Source(buffer, amplitude, onEnded) {
-		var source = audioContext.createBufferSource();
-		source.buffer = buffer;
-		var envelopeGain = audioContext.createGain();
-		envelopeGain.connect(samplerGain);
-		envelopeGain.gain.value = amplitude;
-		source.connect(envelopeGain);
-		source.onended = function() {
-			source.disconnect();
-			envelopeGain.disconnect();
-			onEnded();
-		};
-	
+		var player = new Tone.Player(buffer).toMaster();
+		player.retrigger = true;
+		
 		this.start = function() {
-			source.start();
+			player.start();
 		};
 	
 		this.stop = function() {
-			var now = audioContext.currentTime;
-			envelopeGain.gain.setValueAtTime(envelopeGain.gain.value, now);
-			envelopeGain.gain.linearRampToValueAtTime(0, now+0.01);
-			source.stop(now+0.02);
+			player.stop();//now+0.02);
 		}
 	
 		//bend should be between -1 and 1
 		this.bendPitch = function(bend) {
-			source.playbackRate.value = Math.pow(2, bend);
+			player.playbackRate = 
+				Math.pow(2, bend)//, audioContext.currentTime + 0.02);
 		}
 	
 		this.bendEnvelope = function(amplitude) {
-			if (amplitude > 0) {
-				envelopeGain.gain.value = amplitude;
-			}
+			player.volume.linearRampToValueAtTime(Tone.gainToDb(amplitude));//, audioContext.currentTime + 0.02);
 		}
 	}
 	
@@ -99,6 +81,8 @@ function Sampler(audioContext, gains, $scope) {
 			}
 			audioContext.decodeAudioData(response, function(buffer) {
 				samples[index] = buffer;
+				currentSamples[index] = new Source(samples[index], 1, function() {});
+				console.log('loaded', index)
 			});
 		});
 	}

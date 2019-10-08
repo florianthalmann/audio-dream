@@ -81,7 +81,7 @@ function AudioPlayer(Tone, $scope, socket) {
 		var delay = getCurrentDelay();
 		var startTime = Tone.Transport.seconds+delay;
 		currentSource.sync().start(startTime);
-		console.log(Tone.Transport.seconds, delay, startTime);
+		//console.log(Tone.Transport.seconds, delay, startTime);
 		setTimeout(function(){
 			$scope.currentFragments = [$scope.fragments[nextFragmentIndex]];
 			//new Tone.Synth().toMaster().triggerAttackRelease('C4', '8n');
@@ -101,7 +101,7 @@ function AudioPlayer(Tone, $scope, socket) {
 			nextSourceTime = startTime+currentSourceDuration;
 			//console.log(nextSourceTime)
 			var wakeupTime = (nextSourceTime-Tone.Transport.seconds-SCHEDULE_AHEAD_TIME)*1000;
-			console.log(Tone.Transport.seconds, currentSource.buffer.duration, currentSourceDuration, nextSourceTime, wakeupTime)
+			//console.log(Tone.Transport.seconds, currentSource.buffer.duration, currentSourceDuration, nextSourceTime, wakeupTime)
 			timeoutID = setTimeout(tonePlayLoop.bind(this), wakeupTime);
 		});
 	}
